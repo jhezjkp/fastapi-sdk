@@ -6,7 +6,6 @@ import (
 	"github.com/gogf/gf/v2/os/grpool"
 	"github.com/gogf/gf/v2/os/gtime"
 	"github.com/gogf/gf/v2/text/gstr"
-	"github.com/iimeta/fastapi-sdk/common"
 	"github.com/iimeta/fastapi-sdk/logger"
 	"github.com/iimeta/fastapi-sdk/model"
 	"github.com/iimeta/fastapi-sdk/sdkerr"
@@ -104,15 +103,8 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 		logger.Infof(ctx, "ChatCompletion OpenAI model: %s totalTime: %d ms", request.Model, res.TotalTime)
 	}()
 
-	var newMessages []model.ChatCompletionMessage
-	if c.isSupportSystemRole != nil {
-		newMessages = common.HandleMessages(request.Messages, *c.isSupportSystemRole)
-	} else {
-		newMessages = common.HandleMessages(request.Messages, true)
-	}
-
 	messages := make([]openai.ChatCompletionMessage, 0)
-	for _, message := range newMessages {
+	for _, message := range request.Messages {
 
 		chatCompletionMessage := openai.ChatCompletionMessage{
 			Role:         message.Role,
@@ -122,14 +114,6 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 			ToolCalls:    message.ToolCalls,
 			ToolCallID:   message.ToolCallID,
 		}
-
-		//if content, ok := message.Content.([]interface{}); ok {
-		//	if err = gjson.Unmarshal(gjson.MustEncode(content), &chatCompletionMessage.MultiContent); err != nil {
-		//		return res, err
-		//	}
-		//} else {
-		//	chatCompletionMessage.Content = gconv.String(message.Content)
-		//}
 
 		messages = append(messages, chatCompletionMessage)
 	}
@@ -200,15 +184,8 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 		}
 	}()
 
-	var newMessages []model.ChatCompletionMessage
-	if c.isSupportSystemRole != nil {
-		newMessages = common.HandleMessages(request.Messages, *c.isSupportSystemRole)
-	} else {
-		newMessages = common.HandleMessages(request.Messages, true)
-	}
-
 	messages := make([]openai.ChatCompletionMessage, 0)
-	for _, message := range newMessages {
+	for _, message := range request.Messages {
 
 		chatCompletionMessage := openai.ChatCompletionMessage{
 			Role:         message.Role,
@@ -218,14 +195,6 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 			ToolCalls:    message.ToolCalls,
 			ToolCallID:   message.ToolCallID,
 		}
-
-		//if content, ok := message.Content.([]interface{}); ok {
-		//	if err = gjson.Unmarshal(gjson.MustEncode(content), &chatCompletionMessage.MultiContent); err != nil {
-		//		return responseChan, err
-		//	}
-		//} else {
-		//	chatCompletionMessage.Content = gconv.String(message.Content)
-		//}
 
 		messages = append(messages, chatCompletionMessage)
 	}
@@ -327,15 +296,8 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 				}
 			}
 
-			if errors.Is(err, io.EOF) { // || response.Choices[0].FinishReason == openai.FinishReasonStop
+			if errors.Is(err, io.EOF) {
 				logger.Infof(ctx, "ChatCompletionStream OpenAI model: %s finished", request.Model)
-
-				//if len(response.Choices) == 0 {
-				//	response.Choices = append(response.Choices, model.ChatCompletionChoice{
-				//		Delta:        new(openai.ChatCompletionStreamChoiceDelta),
-				//		FinishReason: openai.FinishReasonStop,
-				//	})
-				//}
 
 				end := gtime.Now().UnixMilli()
 				response.Duration = end - duration

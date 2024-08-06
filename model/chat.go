@@ -9,6 +9,7 @@ type ChatCompletionRequest struct {
 	MaxTokens        int                                  `json:"max_tokens,omitempty"`
 	Temperature      float32                              `json:"temperature,omitempty"`
 	TopP             float32                              `json:"top_p,omitempty"`
+	TopK             int                                  `json:"top_k,omitempty"`
 	N                int                                  `json:"n,omitempty"`
 	Stream           bool                                 `json:"stream,omitempty"`
 	Stop             []string                             `json:"stop,omitempty"`
@@ -57,9 +58,9 @@ type ChatCompletionResponse struct {
 }
 
 type ChatCompletionMessage struct {
-	Role         string `json:"role"`
-	Content      any    `json:"content"`
-	MultiContent []openai.ChatMessagePart
+	Role         string                   `json:"role"`
+	Content      any                      `json:"content"`
+	MultiContent []openai.ChatMessagePart `json:"-"`
 
 	// This property isn't in the official documentation, but it's in
 	// the documentation for the official library for python:

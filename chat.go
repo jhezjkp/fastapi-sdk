@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/iimeta/fastapi-sdk/ai360"
 	"github.com/iimeta/fastapi-sdk/aliyun"
+	"github.com/iimeta/fastapi-sdk/anthropic"
 	"github.com/iimeta/fastapi-sdk/baidu"
 	"github.com/iimeta/fastapi-sdk/cloudflare"
 	"github.com/iimeta/fastapi-sdk/consts"
@@ -55,6 +56,12 @@ func NewClient(ctx context.Context, corp, model, key, baseURL, path string, isSu
 			endpoint, region, accessKey, secretKey, bucket, domain, proxyURL...)
 	case consts.CORP_360AI:
 		return ai360.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole,
+			endpoint, region, accessKey, secretKey, bucket, domain, proxyURL...)
+	case consts.CORP_ANTHROPIC:
+		return anthropic.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole,
+			endpoint, region, accessKey, secretKey, bucket, domain, proxyURL...)
+	case consts.CORP_GCP_CLAUDE:
+		return anthropic.NewGcpClient(ctx, model, key, baseURL, path, isSupportSystemRole,
 			endpoint, region, accessKey, secretKey, bucket, domain, proxyURL...)
 	case consts.CORP_CLOUDFLARE:
 		return cloudflare.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole,
