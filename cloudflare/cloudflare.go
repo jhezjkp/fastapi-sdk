@@ -46,8 +46,6 @@ func NewClient(ctx context.Context, model, key, baseURL, path string, isSupportS
 	if baseURL != "" {
 		logger.Infof(ctx, "NewClient Cloudflare model: %s, baseURL: %s", model, baseURL)
 		config.BaseURL = baseURL
-	} else {
-		//config.BaseURL = fmt.Sprintf("https://gateway.ai.cloudflare.com/v1/%s/ai_gateway/workers-ai/v1", ACCOUNT_ID)
 	}
 
 	if len(proxyURL) > 0 && proxyURL[0] != "" {
