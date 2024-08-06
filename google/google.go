@@ -28,7 +28,9 @@ type Client struct {
 	isSupportSystemRole *bool
 }
 
-func NewClient(ctx context.Context, model, key, baseURL, path string, isSupportSystemRole *bool, proxyURL ...string) *Client {
+func NewClient(ctx context.Context, model, key, baseURL, path string, isSupportSystemRole *bool,
+	endpoint string, region string, accessKey string, secretKey string,
+	bucket string, domain string, proxyURL ...string) *Client {
 
 	logger.Infof(ctx, "NewClient Google model: %s, key: %s", model, key)
 
