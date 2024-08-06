@@ -24,18 +24,13 @@ import (
 	"net/url"
 )
 
-const ACCOUNT_ID = "824897556df122ceacdd5695b38d1c0d"
-
 type Client struct {
 	client              *openai.Client
 	oss                 *oss.Oss
-	accountId           string
 	apiToken            string
-	originalURL         string
 	baseURL             string
 	path                string
 	proxyURL            string
-	domain              string
 	isSupportSystemRole *bool
 }
 
@@ -52,7 +47,7 @@ func NewClient(ctx context.Context, model, key, baseURL, path string, isSupportS
 		logger.Infof(ctx, "NewClient Cloudflare model: %s, baseURL: %s", model, baseURL)
 		config.BaseURL = baseURL
 	} else {
-		config.BaseURL = fmt.Sprintf("https://gateway.ai.cloudflare.com/v1/%s/ai_gateway/workers-ai/v1", ACCOUNT_ID)
+		//config.BaseURL = fmt.Sprintf("https://gateway.ai.cloudflare.com/v1/%s/ai_gateway/workers-ai/v1", ACCOUNT_ID)
 	}
 
 	if len(proxyURL) > 0 && proxyURL[0] != "" {
@@ -69,12 +64,31 @@ func NewClient(ctx context.Context, model, key, baseURL, path string, isSupportS
 			},
 		}
 	}
+	var oc *openai.Client
+	// if baseURL contains gateway then indicate it is a text to text model
+	if gstr.Contains(baseURL, "gateway") {
+		oc = openai.NewClientWithConfig(config)
+	} else {
+		// if baseURL end with / then remove /
+		if gstr.HasSuffix(baseURL, "/") {
+			baseURL = gstr.SubStr(baseURL, 0, gstr.PosR(baseURL, "/"))
+		}
+		// make sure the path is starts with / and ends with /
+		if !gstr.HasPrefix(path, "/") {
+			path = "/" + path
+		}
+		if !gstr.HasSuffix(path, "/") {
+			path = path + "/"
+		}
+	}
 
 	client := &Client{
-		client:              openai.NewClientWithConfig(config),
+		client:              oc,
 		oss:                 &oss.Oss{Endpoint: endpoint, Region: region, AccessKey: accessKey, SecretKey: secretKey, Bucket: bucket, Domain: domain},
 		apiToken:            key,
-		accountId:           ACCOUNT_ID,
+		baseURL:             baseURL,
+		path:                path,
+		proxyURL:            proxyURL[0],
 		isSupportSystemRole: isSupportSystemRole,
 	}
 
@@ -382,7 +396,7 @@ func (c *Client) Image(ctx context.Context, request model.ImageRequest) (res mod
 	}
 
 	// text2image模型是特别的url
-	requestUrl := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/ai/run/%s", c.accountId, request.Model)
+	requestUrl := fmt.Sprintf("%s%s%s", c.baseURL, c.path, request.Model)
 
 	// 构建请求体
 	requestBody := map[string]interface{}{
@@ -413,7 +427,7 @@ func (c *Client) Image(ctx context.Context, request model.ImageRequest) (res mod
 			var imageUrl string
 			imageUrl, err = c.oss.Upload(imageBytes, fmt.Sprintf("fastapi/%s.jpg", common.RandomString(8)))
 			if err != nil {
-				fmt.Println("Error uploading image:", err)
+				logger.Errorf(ctx, "Image Cloudflare model: %s, error: %v", request.Model, err)
 				continue
 			}
 			imageData.URL = imageUrl
@@ -456,14 +470,14 @@ func genImage(requestUrl string, token string, requestBody map[string]interface{
 
 	// 检查响应状态码
 	if resp.StatusCode != http.StatusOK {
-		fmt.Println("Unexpected status code:", resp.StatusCode)
+		logger.Errorf(context.Background(), "Unexpected status code: %d", resp.StatusCode)
 		return nil, errors.New(fmt.Sprintf("unexpected status code: %d", resp.StatusCode))
 	}
 
 	// 读取响应体到byte[]
 	imageBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("Error reading response body:", err)
+		logger.Errorf(context.Background(), "Error reading response body: %v", err)
 		return nil, err
 	}
 	return imageBytes, nil
