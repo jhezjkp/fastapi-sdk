@@ -12,6 +12,7 @@ const (
 	CORP_360AI      = "360AI"
 	CORP_MIDJOURNEY = "Midjourney"
 	CORP_CLOUDFLARE = "Cloudflare"
+	CORP_HYPERBOLIC = "Hyperbolic"
 )
 
 const (
