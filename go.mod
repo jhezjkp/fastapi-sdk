@@ -7,7 +7,7 @@ require (
 	github.com/gogf/gf/v2 v2.7.2
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/gorilla/websocket v1.5.3
-	github.com/iimeta/go-openai v0.0.0-20240730081821-64b1175d8b6d
+	github.com/iimeta/go-openai v0.0.0-20240809024851-bfbfac125988
 	github.com/iimeta/tiktoken-go v0.0.0-20240727093849-292e86033509
 )
 
