@@ -2,7 +2,6 @@ package deepseek
 
 import (
 	"context"
-	"fmt"
 	"github.com/iimeta/fastapi-sdk/model"
 	"os"
 	"testing"
@@ -10,12 +9,13 @@ import (
 
 func TestChatCompletion(t *testing.T) {
 	supportSystemRole := true
-	ctx := context.TODO()
+	ctx := context.Background()
 	apiKey := os.Getenv("DEEPSEEK_API_KEY")
 	c := NewClient(ctx, "deepseek-chat", apiKey, "", "", &supportSystemRole,
 		"", "", "", "", "", "", "")
 	if c == nil {
 		t.Errorf("NewClient failed")
+		t.FailNow()
 	}
 	req := model.ChatCompletionRequest{}
 	req.Model = "deepseek-chat"
@@ -23,6 +23,8 @@ func TestChatCompletion(t *testing.T) {
 	res, err := c.ChatCompletion(ctx, req)
 	if err != nil {
 		t.Errorf("ChatCompletion failed, error: %v", err)
+		t.FailNow()
 	}
-	fmt.Println(res.Choices[0].Message.Content)
+	content := res.Choices[0].Message.Content
+	t.Logf("ChatCompletionResponse: %s", content)
 }
