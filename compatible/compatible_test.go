@@ -18,6 +18,7 @@ func TestChatCompletion(t *testing.T) {
 		EnvKey  string
 	}{
 		{consts.CORP_HYPERBOLIC, "meta-llama/Meta-Llama-3.1-8B-Instruct", "https://api.hyperbolic.xyz/v1", "HYPERBOLIC_API_KEY"},
+		{consts.CORP_DEEPSEEK, "deepseek-chat", "https://api.deepseek.com/v1", "DEEPSEEK_API_KEY"},
 		{consts.CORP_SILICONFLOW, "Qwen/Qwen2-7B-Instruct", "https://api.siliconflow.cn/v1", "SILICONFLOW_API_KEY"},
 		{consts.CORP_CLOUDFLARE, "@cf/meta/llama-3.1-8b-instruct",
 			fmt.Sprintf("https://gateway.ai.cloudflare.com/v1/%s/ai_gateway/workers-ai/v1",
@@ -47,7 +48,7 @@ func TestChatCompletion(t *testing.T) {
 				Model: modelName,
 				// create a ChatCompletionRequest with system message and user message
 				Messages:    []model.ChatCompletionMessage{systemMsg, userMsg},
-				MaxTokens:   8192,
+				MaxTokens:   2048,
 				Temperature: 0.7,
 				TopP:        0.9,
 				N:           1,
