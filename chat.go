@@ -8,7 +8,6 @@ import (
 	"github.com/iimeta/fastapi-sdk/baidu"
 	"github.com/iimeta/fastapi-sdk/compatible"
 	"github.com/iimeta/fastapi-sdk/consts"
-	"github.com/iimeta/fastapi-sdk/deepseek"
 	"github.com/iimeta/fastapi-sdk/google"
 	"github.com/iimeta/fastapi-sdk/logger"
 	"github.com/iimeta/fastapi-sdk/model"
@@ -49,9 +48,6 @@ func NewClient(ctx context.Context, corp, model, key, baseURL, path string, isSu
 			endpoint, region, accessKey, secretKey, bucket, domain, proxyURL...)
 	case consts.CORP_GOOGLE:
 		return google.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole,
-			endpoint, region, accessKey, secretKey, bucket, domain, proxyURL...)
-	case consts.CORP_DEEPSEEK:
-		return deepseek.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole,
 			endpoint, region, accessKey, secretKey, bucket, domain, proxyURL...)
 	case consts.CORP_360AI:
 		return ai360.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole,
