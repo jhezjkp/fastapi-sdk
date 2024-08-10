@@ -1,13 +1,14 @@
-package cloudflare
+package compatible
+
+// openai兼容接口
 
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gogf/gf/v2/encoding/gbase64"
-	"github.com/gogf/gf/v2/encoding/gjson"
 	"github.com/gogf/gf/v2/os/grpool"
 	"github.com/gogf/gf/v2/os/gtime"
 	"github.com/gogf/gf/v2/text/gstr"
@@ -25,33 +26,45 @@ import (
 )
 
 type Client struct {
-	client              *openai.Client
+	corp                string
 	oss                 *oss.Oss
 	apiToken            string
 	baseURL             string
 	path                string
-	proxyURL            string
+	proxyURL            []string
 	isSupportSystemRole *bool
 }
 
-func NewClient(ctx context.Context, model, key, baseURL, path string, isSupportSystemRole *bool,
+func NewClient(ctx context.Context, corp, model, key, baseURL, path string, isSupportSystemRole *bool,
 	endpoint string, region string, accessKey string, secretKey string,
 	bucket string, domain string, proxyURL ...string) *Client {
 
-	logger.Infof(ctx, "NewClient Cloudflare model: %s, key: %s", model, key)
-
-	// create client
-	config := openai.DefaultConfig(key)
-
-	if baseURL != "" {
-		logger.Infof(ctx, "NewClient Cloudflare model: %s, baseURL: %s", model, baseURL)
-		config.BaseURL = baseURL
+	// 兼容的openai模型一定要提供baseURL
+	if baseURL == "" {
+		panic("baseURL is required: corp=" + corp)
 	}
 
-	if len(proxyURL) > 0 && proxyURL[0] != "" {
-		logger.Infof(ctx, "NewClient Cloudflare model: %s, proxyURL: %s", model, proxyURL[0])
+	return &Client{
+		corp:                corp,
+		oss:                 &oss.Oss{Endpoint: endpoint, Region: region, AccessKey: accessKey, SecretKey: secretKey, Bucket: bucket, Domain: domain},
+		apiToken:            key,
+		baseURL:             baseURL,
+		path:                path,
+		proxyURL:            proxyURL,
+		isSupportSystemRole: isSupportSystemRole,
+	}
+}
 
-		proxyUrl, err := url.Parse(proxyURL[0])
+func (c *Client) buildOpenAiClient(ctx context.Context) *openai.Client {
+	config := openai.DefaultConfig(c.apiToken)
+
+	logger.Infof(ctx, "NewClient %s, baseURL: %s", c.corp, c.baseURL)
+	config.BaseURL = c.baseURL
+
+	if len(c.proxyURL) > 0 && c.proxyURL[0] != "" {
+		logger.Infof(ctx, "NewClient %s, proxyURL: %s", c.corp, c.proxyURL[0])
+
+		proxyUrl, err := url.Parse(c.proxyURL[0])
 		if err != nil {
 			panic(err)
 		}
@@ -62,61 +75,17 @@ func NewClient(ctx context.Context, model, key, baseURL, path string, isSupportS
 			},
 		}
 	}
-	var oc *openai.Client
-	// if baseURL contains gateway then indicate it is a text to text model
-	if gstr.Contains(baseURL, "gateway") {
-		oc = openai.NewClientWithConfig(config)
-	} else {
-		// if baseURL end with / then remove /
-		if gstr.HasSuffix(baseURL, "/") {
-			baseURL = gstr.SubStr(baseURL, 0, gstr.PosR(baseURL, "/"))
-		}
-		// make sure the path is starts with / and ends with /
-		if !gstr.HasPrefix(path, "/") {
-			path = "/" + path
-		}
-		if !gstr.HasSuffix(path, "/") {
-			path = path + "/"
-		}
-	}
-
-	client := &Client{
-		client:              oc,
-		oss:                 &oss.Oss{Endpoint: endpoint, Region: region, AccessKey: accessKey, SecretKey: secretKey, Bucket: bucket, Domain: domain},
-		apiToken:            key,
-		baseURL:             baseURL,
-		path:                path,
-		proxyURL:            proxyURL[0],
-		isSupportSystemRole: isSupportSystemRole,
-	}
-
-	if baseURL != "" {
-		logger.Infof(ctx, "NewClient Cloudflare model: %s, baseURL: %s", model, baseURL)
-
-		client.baseURL = baseURL
-	}
-
-	if path != "" {
-		logger.Infof(ctx, "NewClient Cloudflare model: %s, path: %s", model, path)
-		client.path = path
-	}
-
-	if len(proxyURL) > 0 && proxyURL[0] != "" {
-		logger.Infof(ctx, "NewClient Cloudflare model: %s, proxyURL: %s", model, proxyURL[0])
-		client.proxyURL = proxyURL[0]
-	}
-
-	return client
+	return openai.NewClientWithConfig(config)
 }
 
 func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletionRequest) (res model.ChatCompletionResponse, err error) {
 
-	logger.Infof(ctx, "ChatCompletion Cloudflare model: %s start", request.Model)
+	logger.Infof(ctx, "ChatCompletion %s model: %s start", c.corp, request.Model)
 
 	now := gtime.Now().UnixMilli()
 	defer func() {
 		res.TotalTime = gtime.Now().UnixMilli() - now
-		logger.Infof(ctx, "ChatCompletion Cloudflare model: %s totalTime: %d ms", request.Model, res.TotalTime)
+		logger.Infof(ctx, "ChatCompletion %s model: %s totalTime: %d ms", c.corp, request.Model, res.TotalTime)
 	}()
 
 	var newMessages []model.ChatCompletionMessage
@@ -132,26 +101,18 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 		chatCompletionMessage := openai.ChatCompletionMessage{
 			Role:         message.Role,
 			Name:         message.Name,
+			Content:      gconv.String(message.Content),
 			FunctionCall: message.FunctionCall,
 			ToolCalls:    message.ToolCalls,
 			ToolCallID:   message.ToolCallID,
 		}
 
-		if content, ok := message.Content.([]interface{}); ok {
-			if err = gjson.Unmarshal(gjson.MustEncode(content), &chatCompletionMessage.MultiContent); err != nil {
-				return res, err
-			}
-		} else {
-			chatCompletionMessage.Content = gconv.String(message.Content)
-		}
-
 		messages = append(messages, chatCompletionMessage)
 	}
 
-	response, err := c.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+	completionRequest := openai.ChatCompletionRequest{
 		Model:            request.Model,
 		Messages:         messages,
-		MaxTokens:        request.MaxTokens,
 		Temperature:      request.Temperature,
 		TopP:             request.TopP,
 		N:                request.N,
@@ -169,13 +130,17 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 		FunctionCall:     request.FunctionCall,
 		Tools:            request.Tools,
 		ToolChoice:       request.ToolChoice,
-	})
+	}
+	if c.corp != consts.CORP_HYPERBOLIC {
+		completionRequest.MaxTokens = request.MaxTokens // Hyperbolic传了这个参数报400错误，先针对Hyperbolic屏蔽该参数
+	}
+	response, err := c.buildOpenAiClient(ctx).CreateChatCompletion(ctx, completionRequest)
 	if err != nil {
-		logger.Errorf(ctx, "ChatCompletion Cloudflare model: %s, error: %v", request.Model, err)
+		logger.Errorf(ctx, "ChatCompletion %s model: %s, error: %v", c.corp, request.Model, err)
 		return res, c.apiErrorHandler(err)
 	}
 
-	logger.Infof(ctx, "ChatCompletion Cloudflare model: %s finished", request.Model)
+	logger.Infof(ctx, "ChatCompletion %s model: %s finished", c.corp, request.Model)
 
 	res = model.ChatCompletionResponse{
 		ID:      consts.COMPLETION_ID_PREFIX + response.ID,
@@ -204,12 +169,12 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 
 func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCompletionRequest) (responseChan chan *model.ChatCompletionResponse, err error) {
 
-	logger.Infof(ctx, "ChatCompletionStream Cloudflare model: %s start", request.Model)
+	logger.Infof(ctx, "ChatCompletionStream %s model: %s start", c.corp, request.Model)
 
 	now := gtime.Now().UnixMilli()
 	defer func() {
 		if err != nil {
-			logger.Infof(ctx, "ChatCompletionStream Cloudflare model: %s totalTime: %d ms", request.Model, gtime.Now().UnixMilli()-now)
+			logger.Infof(ctx, "ChatCompletionStream %s model: %s totalTime: %d ms", c.corp, request.Model, gtime.Now().UnixMilli()-now)
 		}
 	}()
 
@@ -226,26 +191,18 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 		chatCompletionMessage := openai.ChatCompletionMessage{
 			Role:         message.Role,
 			Name:         message.Name,
+			Content:      gconv.String(message.Content),
 			FunctionCall: message.FunctionCall,
 			ToolCalls:    message.ToolCalls,
 			ToolCallID:   message.ToolCallID,
 		}
 
-		if content, ok := message.Content.([]interface{}); ok {
-			if err = gjson.Unmarshal(gjson.MustEncode(content), &chatCompletionMessage.MultiContent); err != nil {
-				return responseChan, err
-			}
-		} else {
-			chatCompletionMessage.Content = gconv.String(message.Content)
-		}
-
 		messages = append(messages, chatCompletionMessage)
 	}
 
-	stream, err := c.client.CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
+	completionRequest := openai.ChatCompletionRequest{
 		Model:            request.Model,
 		Messages:         messages,
-		MaxTokens:        request.MaxTokens,
 		Temperature:      request.Temperature,
 		TopP:             request.TopP,
 		N:                request.N,
@@ -263,9 +220,13 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 		FunctionCall:     request.FunctionCall,
 		Tools:            request.Tools,
 		ToolChoice:       request.ToolChoice,
-	})
+	}
+	if c.corp != consts.CORP_HYPERBOLIC {
+		completionRequest.MaxTokens = request.MaxTokens // Hyperbolic传了这个参数报400错误，先针对Hyperbolic屏蔽该参数
+	}
+	stream, err := c.buildOpenAiClient(ctx).CreateChatCompletionStream(ctx, completionRequest)
 	if err != nil {
-		logger.Errorf(ctx, "ChatCompletionStream Cloudflare model: %s, error: %v", request.Model, err)
+		logger.Errorf(ctx, "ChatCompletionStream %s model: %s, error: %v", c.corp, request.Model, err)
 		return responseChan, c.apiErrorHandler(err)
 	}
 
@@ -277,20 +238,20 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 
 		defer func() {
 			if err := stream.Close(); err != nil {
-				logger.Errorf(ctx, "ChatCompletionStream Cloudflare model: %s, stream.Close error: %v", request.Model, err)
+				logger.Errorf(ctx, "ChatCompletionStream %s model: %s, stream.Close error: %v", c.corp, request.Model, err)
 			}
 
 			end := gtime.Now().UnixMilli()
-			logger.Infof(ctx, "ChatCompletionStream Cloudflare model: %s connTime: %d ms, duration: %d ms, totalTime: %d ms", request.Model, duration-now, end-duration, end-now)
+			logger.Infof(ctx, "ChatCompletionStream %s model: %s connTime: %d ms, duration: %d ms, totalTime: %d ms", c.corp, request.Model, duration-now, end-duration, end-now)
 		}()
 
 		for {
 
-			streamResponse, err := stream.Recv()
+			responseBytes, streamResponse, err := stream.Recv()
 			if err != nil && !errors.Is(err, io.EOF) {
 
 				if !errors.Is(err, context.Canceled) {
-					logger.Errorf(ctx, "ChatCompletionStream Cloudflare model: %s, error: %v", request.Model, err)
+					logger.Errorf(ctx, "ChatCompletionStream %s model: %s, error: %v", c.corp, request.Model, err)
 				}
 
 				end := gtime.Now().UnixMilli()
@@ -310,20 +271,21 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 				Created:           streamResponse.Created,
 				Model:             streamResponse.Model,
 				PromptAnnotations: streamResponse.PromptAnnotations,
+				ResponseBytes:     responseBytes,
 				ConnTime:          duration - now,
 			}
 
 			for _, choice := range streamResponse.Choices {
 				response.Choices = append(response.Choices, model.ChatCompletionChoice{
-					Index:                choice.Index,
-					Delta:                &choice.Delta,
-					FinishReason:         choice.FinishReason,
-					ContentFilterResults: &choice.ContentFilterResults,
+					Index:        choice.Index,
+					Delta:        &choice.Delta,
+					FinishReason: choice.FinishReason,
+					//ContentFilterResults: &choice.ContentFilterResults,
 				})
 			}
 
 			if errors.Is(err, io.EOF) || response.Choices[0].FinishReason == openai.FinishReasonStop {
-				logger.Infof(ctx, "ChatCompletionStream Cloudflare model: %s finished", request.Model)
+				logger.Infof(ctx, "ChatCompletionStream %s model: %s finished", c.corp, request.Model)
 
 				if len(response.Choices) == 0 {
 					response.Choices = append(response.Choices, model.ChatCompletionChoice{
@@ -337,6 +299,13 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 				response.TotalTime = end - now
 				responseChan <- response
 
+				responseChan <- &model.ChatCompletionResponse{
+					ConnTime:  duration - now,
+					Duration:  end - duration,
+					TotalTime: end - now,
+					Error:     io.EOF,
+				}
+
 				return
 			}
 
@@ -347,7 +316,7 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 			responseChan <- response
 		}
 	}, nil); err != nil {
-		logger.Errorf(ctx, "ChatCompletionStream Cloudflare model: %s, error: %v", request.Model, err)
+		logger.Errorf(ctx, "ChatCompletionStream %s model: %s, error: %v", c.corp, request.Model, err)
 		return responseChan, err
 	}
 
@@ -356,19 +325,18 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 
 func (c *Client) Image(ctx context.Context, request model.ImageRequest) (res model.ImageResponse, err error) {
 
-	logger.Infof(ctx, "Image Cloudflare model: %s start", request.Model)
+	logger.Infof(ctx, "Image %s model: %s start", c.corp, request.Model)
 
 	now := gtime.Now().UnixMilli()
 	defer func() {
 		res.TotalTime = gtime.Now().UnixMilli() - now
-		logger.Infof(ctx, "Image Cloudflare model: %s totalTime: %d ms", request.Model, gtime.Now().UnixMilli()-now)
+		logger.Infof(ctx, "Image %s model: %s totalTime: %d ms", c.corp, request.Model, gtime.Now().UnixMilli()-now)
 	}()
 
 	width := 512
 	height := 512
 
 	if request.Size != "" {
-
 		size := gstr.Split(request.Size, `×`)
 
 		if len(size) != 2 {
@@ -394,14 +362,49 @@ func (c *Client) Image(ctx context.Context, request model.ImageRequest) (res mod
 	}
 
 	// text2image模型是特别的url
-	requestUrl := fmt.Sprintf("%s%s%s", c.baseURL, c.path, request.Model)
+	requestUrl := fmt.Sprintf("%s%s", c.baseURL, c.path)
+	if c.corp == consts.CORP_CLOUDFLARE {
+		// check if requestUrl has a trailing slash
+		if requestUrl[len(requestUrl)-1] != '/' {
+			requestUrl += "/"
+		}
+		requestUrl += request.Model
+	}
 
 	// 构建请求体
 	requestBody := map[string]interface{}{
-		"prompt":          request.Prompt,
-		"negative_prompt": "",
-		"width":           width,
-		"height":          height,
+		"prompt": request.Prompt,
+		"width":  width,
+		"height": height,
+	}
+
+	// 响应处理器: 默认为base46处理器
+	bodyProcessor := func(body io.ReadCloser) (string, error) {
+		// convert the response body to a map
+		var result map[string]interface{}
+		err = json.NewDecoder(body).Decode(&result)
+		if err != nil {
+			logger.Errorf(context.Background(), "Error decoding response body: %v", err)
+			return "", err
+		}
+		// 结果在.images[0].image，base64编码
+		base64ImageData := result["images"].([]interface{})[0].(map[string]interface{})["image"].(string)
+		return base64ImageData, nil
+	}
+	switch c.corp {
+	case consts.CORP_HYPERBOLIC:
+		requestBody["model_name"] = request.Model
+	case consts.CORP_CLOUDFLARE:
+		bodyProcessor = func(body io.ReadCloser) (string, error) {
+			// 读取响应体到byte[]
+			imageBytes, err := io.ReadAll(body)
+			if err != nil {
+				logger.Errorf(context.Background(), "Error reading response body: %v", err)
+				return "", err
+			}
+			// 返回base64编码的图片
+			return base64.StdEncoding.EncodeToString(imageBytes), nil
+		}
 	}
 
 	// 构建响应
@@ -412,7 +415,7 @@ func (c *Client) Image(ctx context.Context, request model.ImageRequest) (res mod
 	}
 
 	for i := 0; i < request.N; i++ {
-		imageBytes, err := genImage(requestUrl, c.apiToken, requestBody)
+		base64Image, err := genImage(requestUrl, c.apiToken, requestBody, bodyProcessor)
 		if err != nil {
 			continue
 		}
@@ -421,16 +424,23 @@ func (c *Client) Image(ctx context.Context, request model.ImageRequest) (res mod
 		imageData.RevisedPrompt = request.Prompt
 		switch request.ResponseFormat {
 		case openai.CreateImageResponseFormatURL, "":
+			// decode base64 image
+			imageBytes, err := base64.StdEncoding.DecodeString(base64Image)
+			if err != nil {
+				logger.Errorf(ctx, "Image %s model: %s, error: %v", c.corp, request.Model, err)
+				continue
+			}
+			logger.Infof(ctx, "image generated(size: %d), upload to oss", len(imageBytes))
 			// 上传文件到云端
 			var imageUrl string
 			imageUrl, err = c.oss.Upload(imageBytes, fmt.Sprintf("fastapi/%s.jpg", common.RandomString(8)))
 			if err != nil {
-				logger.Errorf(ctx, "Image Cloudflare model: %s, error: %v", request.Model, err)
+				logger.Errorf(ctx, "Image %s model: %s, error: %v", c.corp, request.Model, err)
 				continue
 			}
 			imageData.URL = imageUrl
 		case openai.CreateImageResponseFormatB64JSON:
-			imageData.B64JSON = gbase64.EncodeToString(imageBytes)
+			imageData.B64JSON = base64Image
 		default:
 			return res, errors.New("invalid response format")
 		}
@@ -440,17 +450,17 @@ func (c *Client) Image(ctx context.Context, request model.ImageRequest) (res mod
 	return res, nil
 }
 
-func genImage(requestUrl string, token string, requestBody map[string]interface{}) ([]byte, error) {
+func genImage(requestUrl string, token string, requestBody map[string]interface{}, bodyPrcessor func(body io.ReadCloser) (string, error)) (string, error) {
 	jsonBody, err := json.Marshal(requestBody)
 	if err != nil {
 		fmt.Println("Error marshalling JSON:", err)
-		return nil, err
+		return "", err
 	}
 	// 创建HTTP请求
 	req, err := http.NewRequest("POST", requestUrl, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		fmt.Println("Error creating request:", err)
-		return nil, err
+		return "", err
 	}
 
 	// 设置请求头
@@ -462,23 +472,16 @@ func genImage(requestUrl string, token string, requestBody map[string]interface{
 	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Println("Error sending request:", err)
-		return nil, err
+		return "", err
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态码
 	if resp.StatusCode != http.StatusOK {
 		logger.Errorf(context.Background(), "Unexpected status code: %d", resp.StatusCode)
-		return nil, errors.New(fmt.Sprintf("unexpected status code: %d", resp.StatusCode))
+		return "", errors.New(fmt.Sprintf("unexpected status code: %d", resp.StatusCode))
 	}
-
-	// 读取响应体到byte[]
-	imageBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		logger.Errorf(context.Background(), "Error reading response body: %v", err)
-		return nil, err
-	}
-	return imageBytes, nil
+	return bodyPrcessor(resp.Body)
 }
 
 func (c *Client) apiErrorHandler(err error) error {

@@ -6,11 +6,10 @@ import (
 	"github.com/iimeta/fastapi-sdk/aliyun"
 	"github.com/iimeta/fastapi-sdk/anthropic"
 	"github.com/iimeta/fastapi-sdk/baidu"
-	"github.com/iimeta/fastapi-sdk/cloudflare"
+	"github.com/iimeta/fastapi-sdk/compatible"
 	"github.com/iimeta/fastapi-sdk/consts"
 	"github.com/iimeta/fastapi-sdk/deepseek"
 	"github.com/iimeta/fastapi-sdk/google"
-	"github.com/iimeta/fastapi-sdk/hyperbolic"
 	"github.com/iimeta/fastapi-sdk/logger"
 	"github.com/iimeta/fastapi-sdk/model"
 	"github.com/iimeta/fastapi-sdk/openai"
@@ -63,15 +62,8 @@ func NewClient(ctx context.Context, corp, model, key, baseURL, path string, isSu
 	case consts.CORP_GCP_CLAUDE:
 		return anthropic.NewGcpClient(ctx, model, key, baseURL, path, isSupportSystemRole,
 			endpoint, region, accessKey, secretKey, bucket, domain, proxyURL...)
-	case consts.CORP_CLOUDFLARE:
-		return cloudflare.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole,
-			endpoint, region, accessKey, secretKey, bucket, domain, proxyURL...)
-	case consts.CORP_HYPERBOLIC:
-		return hyperbolic.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole,
-			endpoint, region, accessKey, secretKey, bucket, domain, proxyURL...)
-
 	}
 
-	return openai.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole,
+	return compatible.NewClient(ctx, corp, model, key, baseURL, path, isSupportSystemRole,
 		endpoint, region, accessKey, secretKey, bucket, domain, proxyURL...)
 }
