@@ -18,12 +18,14 @@ func TestChatCompletion(t *testing.T) {
 		EnvKey  string
 	}{
 		{consts.CORP_HYPERBOLIC, "meta-llama/Meta-Llama-3.1-8B-Instruct", "https://api.hyperbolic.xyz/v1", "HYPERBOLIC_API_KEY"},
+		{consts.CORP_SILICONFLOW, "Qwen/Qwen2-7B-Instruct", "https://api.siliconflow.cn/v1", "SILICONFLOW_API_KEY"},
 		{consts.CORP_CLOUDFLARE, "@cf/meta/llama-3.1-8b-instruct",
 			fmt.Sprintf("https://gateway.ai.cloudflare.com/v1/%s/ai_gateway/workers-ai/v1",
 				os.Getenv("CF_ACCOUNT_ID")), "CF_API_KEY"},
 	}
 	for _, c := range cases {
 		t.Run(c.Corp, func(t *testing.T) {
+			corp := c.Corp
 			modelName := c.Model
 			apiKey := os.Getenv(c.EnvKey)
 			baseUrl := c.BaseURL
@@ -32,7 +34,7 @@ func TestChatCompletion(t *testing.T) {
 			proxyURL := ""
 
 			ctx := context.Background()
-			client := NewClient(ctx, consts.CORP_HYPERBOLIC, modelName, apiKey, baseUrl, path, &isSupportSystemRole, "", "", "", "", "", "", proxyURL)
+			client := NewClient(ctx, corp, modelName, apiKey, baseUrl, path, &isSupportSystemRole, "", "", "", "", "", "", proxyURL)
 			systemMsg := model.ChatCompletionMessage{
 				Role:    consts.ROLE_SYSTEM,
 				Content: "you are a helpful assistant.",
@@ -103,6 +105,7 @@ func TestGenImageUrl(t *testing.T) {
 		EnvKey  string
 	}{
 		{consts.CORP_HYPERBOLIC, "FLUX.1-dev", "https://api.hyperbolic.xyz/v1", "/image/generation", "HYPERBOLIC_API_KEY"},
+		{consts.CORP_SILICONFLOW, "FLUX.1-schnell", "https://api.siliconflow.cn/v1", "/black-forest-labs/FLUX.1-schnell/text-to-image", "SILICONFLOW_API_KEY"},
 		{consts.CORP_CLOUDFLARE, "@cf/bytedance/stable-diffusion-xl-lightning", "https://api.cloudflare.com/client/v4",
 			fmt.Sprintf("/accounts/%s/ai/run/", os.Getenv("CF_ACCOUNT_ID")), "CF_API_KEY"},
 	}

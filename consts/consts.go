@@ -1,20 +1,21 @@
 package consts
 
 const (
-	CORP_OPENAI     = "OpenAI"
-	CORP_AZURE      = "Azure"
-	CORP_BAIDU      = "Baidu"
-	CORP_XFYUN      = "Xfyun"
-	CORP_ALIYUN     = "Aliyun"
-	CORP_ZHIPUAI    = "ZhipuAI"
-	CORP_GOOGLE     = "Google"
-	CORP_DEEPSEEK   = "DeepSeek"
-	CORP_360AI      = "360AI"
-	CORP_MIDJOURNEY = "Midjourney"
-	CORP_ANTHROPIC  = "Anthropic"
-	CORP_GCP_CLAUDE = "GCPClaude"
-	CORP_CLOUDFLARE = "Cloudflare"
-	CORP_HYPERBOLIC = "Hyperbolic"
+	CORP_OPENAI      = "OpenAI"
+	CORP_AZURE       = "Azure"
+	CORP_BAIDU       = "Baidu"
+	CORP_XFYUN       = "Xfyun"
+	CORP_ALIYUN      = "Aliyun"
+	CORP_ZHIPUAI     = "ZhipuAI"
+	CORP_GOOGLE      = "Google"
+	CORP_DEEPSEEK    = "DeepSeek"
+	CORP_360AI       = "360AI"
+	CORP_MIDJOURNEY  = "Midjourney"
+	CORP_ANTHROPIC   = "Anthropic"
+	CORP_GCP_CLAUDE  = "GCPClaude"
+	CORP_CLOUDFLARE  = "Cloudflare"
+	CORP_HYPERBOLIC  = "Hyperbolic"
+	CORP_SILICONFLOW = "Siliconflow"
 )
 
 const (

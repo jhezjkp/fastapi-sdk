@@ -131,7 +131,7 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 		Tools:            request.Tools,
 		ToolChoice:       request.ToolChoice,
 	}
-	if c.corp != consts.CORP_HYPERBOLIC {
+	if c.corp != consts.CORP_HYPERBOLIC && c.corp != consts.CORP_SILICONFLOW {
 		completionRequest.MaxTokens = request.MaxTokens // Hyperbolic传了这个参数报400错误，先针对Hyperbolic屏蔽该参数
 	}
 	response, err := c.buildOpenAiClient(ctx).CreateChatCompletion(ctx, completionRequest)
@@ -378,33 +378,47 @@ func (c *Client) Image(ctx context.Context, request model.ImageRequest) (res mod
 		"height": height,
 	}
 
-	// 响应处理器: 默认为base46处理器
-	bodyProcessor := func(body io.ReadCloser) (string, error) {
+	// 响应处理器: 默认为base64处理器
+	bodyProcessor := func(body io.ReadCloser) (bool, string, error) {
 		// convert the response body to a map
 		var result map[string]interface{}
 		err = json.NewDecoder(body).Decode(&result)
 		if err != nil {
 			logger.Errorf(context.Background(), "Error decoding response body: %v", err)
-			return "", err
+			return false, "", err
 		}
 		// 结果在.images[0].image，base64编码
 		base64ImageData := result["images"].([]interface{})[0].(map[string]interface{})["image"].(string)
-		return base64ImageData, nil
+		return false, base64ImageData, nil
 	}
 	switch c.corp {
 	case consts.CORP_HYPERBOLIC:
 		requestBody["model_name"] = request.Model
 	case consts.CORP_CLOUDFLARE:
-		bodyProcessor = func(body io.ReadCloser) (string, error) {
+		bodyProcessor = func(body io.ReadCloser) (bool, string, error) {
 			// 读取响应体到byte[]
 			imageBytes, err := io.ReadAll(body)
 			if err != nil {
 				logger.Errorf(context.Background(), "Error reading response body: %v", err)
-				return "", err
+				return false, "", err
 			}
 			// 返回base64编码的图片
-			return base64.StdEncoding.EncodeToString(imageBytes), nil
+			return false, base64.StdEncoding.EncodeToString(imageBytes), nil
 		}
+	case consts.CORP_SILICONFLOW: // 返回的是url
+		bodyProcessor = func(body io.ReadCloser) (bool, string, error) {
+			// convert the response body to a map
+			var result map[string]interface{}
+			err = json.NewDecoder(body).Decode(&result)
+			if err != nil {
+				logger.Errorf(context.Background(), "Error decoding response body: %v", err)
+				return false, "", err
+			}
+			// 结果在.images[0].url，base64编码
+			imgUrl := result["images"].([]interface{})[0].(map[string]interface{})["url"].(string)
+			return true, imgUrl, nil
+		}
+
 	}
 
 	// 构建响应
@@ -415,7 +429,7 @@ func (c *Client) Image(ctx context.Context, request model.ImageRequest) (res mod
 	}
 
 	for i := 0; i < request.N; i++ {
-		base64Image, err := genImage(requestUrl, c.apiToken, requestBody, bodyProcessor)
+		isImgUrl, imgResult, err := genImage(requestUrl, c.apiToken, requestBody, bodyProcessor)
 		if err != nil {
 			continue
 		}
@@ -424,23 +438,45 @@ func (c *Client) Image(ctx context.Context, request model.ImageRequest) (res mod
 		imageData.RevisedPrompt = request.Prompt
 		switch request.ResponseFormat {
 		case openai.CreateImageResponseFormatURL, "":
-			// decode base64 image
-			imageBytes, err := base64.StdEncoding.DecodeString(base64Image)
-			if err != nil {
-				logger.Errorf(ctx, "Image %s model: %s, error: %v", c.corp, request.Model, err)
-				continue
-			}
-			logger.Infof(ctx, "image generated(size: %d), upload to oss", len(imageBytes))
-			// 上传文件到云端
 			var imageUrl string
-			imageUrl, err = c.oss.Upload(imageBytes, fmt.Sprintf("fastapi/%s.jpg", common.RandomString(8)))
-			if err != nil {
-				logger.Errorf(ctx, "Image %s model: %s, error: %v", c.corp, request.Model, err)
-				continue
+			if isImgUrl {
+				imageUrl = imgResult
+			} else {
+				// decode base64 image
+				imageBytes, err := base64.StdEncoding.DecodeString(imgResult)
+				if err != nil {
+					logger.Errorf(ctx, "Image %s model: %s, error: %v", c.corp, request.Model, err)
+					continue
+				}
+				logger.Infof(ctx, "image generated(size: %d), upload to oss", len(imageBytes))
+				// 上传文件到云端
+				imageUrl, err = c.oss.Upload(imageBytes, fmt.Sprintf("fastapi/%s.jpg", common.RandomString(8)))
+				if err != nil {
+					logger.Errorf(ctx, "Image %s model: %s, error: %v", c.corp, request.Model, err)
+					continue
+				}
 			}
 			imageData.URL = imageUrl
 		case openai.CreateImageResponseFormatB64JSON:
-			imageData.B64JSON = base64Image
+			if isImgUrl {
+				resp, err := http.Get(imgResult)
+				if err != nil {
+					logger.Errorf(ctx, "Error fetching image: %v", err)
+					continue
+				}
+				defer resp.Body.Close()
+				// Read image bytes
+				imageBytes, err := io.ReadAll(resp.Body)
+				if err != nil {
+					logger.Errorf(ctx, "Error reading image bytes: %v", err)
+					continue
+				}
+				// Encode image bytes to base64
+				base64Image := base64.StdEncoding.EncodeToString(imageBytes)
+				imageData.B64JSON = base64Image
+			} else {
+				imageData.B64JSON = imgResult
+			}
 		default:
 			return res, errors.New("invalid response format")
 		}
@@ -450,17 +486,18 @@ func (c *Client) Image(ctx context.Context, request model.ImageRequest) (res mod
 	return res, nil
 }
 
-func genImage(requestUrl string, token string, requestBody map[string]interface{}, bodyPrcessor func(body io.ReadCloser) (string, error)) (string, error) {
+func genImage(requestUrl string, token string, requestBody map[string]interface{},
+	bodyPrcessor func(body io.ReadCloser) (bool, string, error)) (bool, string, error) {
 	jsonBody, err := json.Marshal(requestBody)
 	if err != nil {
 		fmt.Println("Error marshalling JSON:", err)
-		return "", err
+		return false, "", err
 	}
 	// 创建HTTP请求
 	req, err := http.NewRequest("POST", requestUrl, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		fmt.Println("Error creating request:", err)
-		return "", err
+		return false, "", err
 	}
 
 	// 设置请求头
@@ -472,14 +509,14 @@ func genImage(requestUrl string, token string, requestBody map[string]interface{
 	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Println("Error sending request:", err)
-		return "", err
+		return false, "", err
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态码
 	if resp.StatusCode != http.StatusOK {
 		logger.Errorf(context.Background(), "Unexpected status code: %d", resp.StatusCode)
-		return "", errors.New(fmt.Sprintf("unexpected status code: %d", resp.StatusCode))
+		return false, "", errors.New(fmt.Sprintf("unexpected status code: %d", resp.StatusCode))
 	}
 	return bodyPrcessor(resp.Body)
 }
