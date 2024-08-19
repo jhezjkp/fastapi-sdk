@@ -48,8 +48,7 @@ var AwsModelIDMap = map[string]string{
 }
 
 func NewClient(ctx context.Context, model, key, baseURL, path string, isSupportSystemRole *bool,
-	endpoint string, region string, accessKey string, secretKey string,
-	bucket string, domain string, proxyURL ...string) *Client {
+	proxyURL ...string) *Client {
 
 	logger.Infof(ctx, "NewClient Anthropic model: %s, key: %s", model, key)
 
@@ -83,8 +82,7 @@ func NewClient(ctx context.Context, model, key, baseURL, path string, isSupportS
 }
 
 func NewGcpClient(ctx context.Context, model, key, baseURL, path string, isSupportSystemRole *bool,
-	endpoint string, region string, accessKey string, secretKey string,
-	bucket string, domain string, proxyURL ...string) *Client {
+	proxyURL ...string) *Client {
 
 	logger.Infof(ctx, "NewGcpClient Anthropic model: %s, key: %s", model, key)
 

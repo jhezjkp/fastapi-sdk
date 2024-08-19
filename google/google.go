@@ -30,8 +30,7 @@ type Client struct {
 }
 
 func NewClient(ctx context.Context, model, key, baseURL, path string, isSupportSystemRole *bool,
-	endpoint string, region string, accessKey string, secretKey string,
-	bucket string, domain string, proxyURL ...string) *Client {
+	proxyURL ...string) *Client {
 
 	logger.Infof(ctx, "NewClient Google model: %s, key: %s", model, key)
 
