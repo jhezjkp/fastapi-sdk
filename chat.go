@@ -8,6 +8,7 @@ import (
 	"github.com/iimeta/fastapi-sdk/baidu"
 	"github.com/iimeta/fastapi-sdk/compatible"
 	"github.com/iimeta/fastapi-sdk/consts"
+	"github.com/iimeta/fastapi-sdk/deepseek"
 	"github.com/iimeta/fastapi-sdk/google"
 	"github.com/iimeta/fastapi-sdk/logger"
 	"github.com/iimeta/fastapi-sdk/model"
@@ -22,42 +23,35 @@ type Chat interface {
 	Image(ctx context.Context, request model.ImageRequest) (res model.ImageResponse, err error)
 }
 
-func NewClient(ctx context.Context, corp, model, key, baseURL, path string, isSupportSystemRole *bool,
-	endpoint string, region string, accessKey string, secretKey string, bucket string, domain string, proxyURL ...string) Chat {
+func NewClient(ctx context.Context, corp, model, key, baseURL, path string, isSupportSystemRole *bool, proxyURL ...string) Chat {
 
 	logger.Infof(ctx, "NewClient corp: %s, model: %s, key: %s", corp, model, key)
 
 	switch corp {
 	case consts.CORP_OPENAI:
-		return openai.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole,
-			endpoint, region, accessKey, secretKey, bucket, domain, proxyURL...)
+		return openai.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole, proxyURL...)
 	case consts.CORP_AZURE:
-		return openai.NewAzureClient(ctx, model, key, baseURL, path, isSupportSystemRole,
-			endpoint, region, accessKey, secretKey, bucket, domain, proxyURL...)
+		return openai.NewAzureClient(ctx, model, key, baseURL, path, isSupportSystemRole, proxyURL...)
 	case consts.CORP_BAIDU:
-		return baidu.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole,
-			endpoint, region, accessKey, secretKey, bucket, domain, proxyURL...)
+		return baidu.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole, proxyURL...)
 	case consts.CORP_XFYUN:
-		return xfyun.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole,
-			endpoint, region, accessKey, secretKey, bucket, domain, proxyURL...)
+		return xfyun.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole, proxyURL...)
 	case consts.CORP_ALIYUN:
-		return aliyun.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole,
-			endpoint, region, accessKey, secretKey, bucket, domain, proxyURL...)
+		return aliyun.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole, proxyURL...)
 	case consts.CORP_ZHIPUAI:
-		return zhipuai.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole,
-			endpoint, region, accessKey, secretKey, bucket, domain, proxyURL...)
+		return zhipuai.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole, proxyURL...)
 	case consts.CORP_GOOGLE:
-		return google.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole,
-			endpoint, region, accessKey, secretKey, bucket, domain, proxyURL...)
+		return google.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole, proxyURL...)
+	case consts.CORP_DEEPSEEK:
+		return deepseek.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole, proxyURL...)
 	case consts.CORP_360AI:
-		return ai360.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole,
-			endpoint, region, accessKey, secretKey, bucket, domain, proxyURL...)
+		return ai360.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole, proxyURL...)
 	case consts.CORP_ANTHROPIC:
-		return anthropic.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole,
-			endpoint, region, accessKey, secretKey, bucket, domain, proxyURL...)
+		return anthropic.NewClient(ctx, model, key, baseURL, path, isSupportSystemRole, proxyURL...)
 	case consts.CORP_GCP_CLAUDE:
-		return anthropic.NewGcpClient(ctx, model, key, baseURL, path, isSupportSystemRole,
-			endpoint, region, accessKey, secretKey, bucket, domain, proxyURL...)
+		return anthropic.NewGcpClient(ctx, model, key, baseURL, path, isSupportSystemRole, proxyURL...)
+	case consts.CORP_AWS_CLAUDE:
+		return anthropic.NewAwsClient(ctx, model, key, baseURL, path, isSupportSystemRole, proxyURL...)
 	}
 
 	return compatible.NewClient(ctx, corp, model, key, baseURL, path, isSupportSystemRole,
