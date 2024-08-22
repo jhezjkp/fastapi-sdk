@@ -508,6 +508,7 @@ func genImage(requestUrl string, token string, requestBody map[string]interface{
 
 	// 设置请求头
 	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
 
 	// 发送HTTP请求
@@ -521,7 +522,7 @@ func genImage(requestUrl string, token string, requestBody map[string]interface{
 
 	// 检查响应状态码
 	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(context.Background(), "Unexpected status code: %d", resp.StatusCode)
+		logger.Errorf(context.Background(), "Unexpected status code: %d, url: %v, request: %v", resp.StatusCode, requestUrl, requestBody)
 		return false, "", errors.New(fmt.Sprintf("unexpected status code: %d", resp.StatusCode))
 	}
 	return bodyPrcessor(resp.Body)
