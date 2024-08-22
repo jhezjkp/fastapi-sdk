@@ -428,9 +428,11 @@ func (c *Client) Image(ctx context.Context, request model.ImageRequest) (res mod
 		Data: make([]model.ImageResponseDataInner, 0),
 	}
 
+	var innerError error
 	for i := 0; i < request.N; i++ {
 		isImgUrl, imgResult, err := genImage(requestUrl, c.apiToken, requestBody, bodyProcessor)
 		if err != nil {
+			innerError = err
 			continue
 		}
 
@@ -482,7 +484,11 @@ func (c *Client) Image(ctx context.Context, request model.ImageRequest) (res mod
 		}
 		res.Data = append(res.Data, imageData)
 	}
+	// 如果N=1且有错误，则返回错误
+	if request.N == 1 && innerError != nil {
+		return res, innerError
 
+	}
 	return res, nil
 }
 
