@@ -41,7 +41,7 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 
 		role := message.Role
 
-		if role == consts.ROLE_ASSISTANT {
+		if role == consts.ROLE_ASSISTANT || role == consts.ROLE_SYSTEM {
 			role = consts.ROLE_MODEL
 		}
 
