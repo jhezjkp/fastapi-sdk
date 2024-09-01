@@ -6,6 +6,7 @@ import (
 	"github.com/iimeta/fastapi-sdk/consts"
 	"github.com/iimeta/fastapi-sdk/model"
 	"github.com/iimeta/go-openai"
+	"io"
 	"os"
 	"testing"
 )
@@ -138,6 +139,69 @@ func TestGenImageUrl(t *testing.T) {
 				t.Errorf("ImageResponse.URL is empty")
 				t.FailNow()
 			}
+		})
+	}
+
+}
+
+func TestSpeech(t *testing.T) {
+	endpoint := os.Getenv("endpoint")
+	region := os.Getenv("region")
+	accessKey := os.Getenv("accessKey")
+	secretKey := os.Getenv("secretKey")
+	bucket := os.Getenv("bucket")
+	domain := os.Getenv("domain")
+	// fail if endpoint/region/accessKey/secretKey/bucket is empty
+	if endpoint == "" || region == "" || accessKey == "" || secretKey == "" || bucket == "" {
+		t.Errorf("endpoint/region/accessKey/secretKey/bucket/domain is empty")
+		t.Failed()
+		return
+	}
+
+	cases := []struct {
+		Corp    string
+		Model   string
+		BaseURL string
+		Path    string
+		EnvKey  string
+	}{
+		{consts.CORP_HYPERBOLIC, "Melo TTS", "https://api.hyperbolic.xyz/v1", "/audio/generation", "HYPERBOLIC_API_KEY"},
+	}
+	for _, c := range cases {
+		t.Run(c.Corp, func(t *testing.T) {
+			corp := c.Corp
+			modelName := c.Model
+			apiKey := os.Getenv(c.EnvKey)
+			baseUrl := c.BaseURL
+			path := c.Path
+			isSupportSystemRole := true
+			proxyURL := ""
+			ctx := context.Background()
+			client := NewClient(ctx, corp, modelName, apiKey, baseUrl, path, &isSupportSystemRole, endpoint, region, accessKey, secretKey, bucket, domain, proxyURL)
+			request := model.SpeechRequest{
+				Input: "a cat sitting on a chair",
+				Speed: 1,
+			}
+			res, err := client.Speech(ctx, request)
+			if err != nil {
+				t.Errorf("Error: %v", err)
+				t.FailNow()
+			}
+			audioData, _ := io.ReadAll(res)
+			t.Logf("SpeechResponse length: %d", len(audioData))
+			file, err := os.Create(fmt.Sprintf("%s.mp3", corp))
+			if err != nil {
+				panic(err) // 处理错误
+			}
+			defer file.Close() // 确保文件关闭
+
+			// 将 bytes 数组写入文件
+			_, err = file.Write(audioData)
+			if err != nil {
+				panic(err) // 处理错误
+			}
+
+			println("MP3 文件写入成功！")
 		})
 	}
 
