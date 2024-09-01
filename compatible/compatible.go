@@ -3,8 +3,11 @@ package compatible
 // openai兼容接口
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/gogf/gf/v2/os/grpool"
 	"github.com/gogf/gf/v2/os/gtime"
 	"github.com/gogf/gf/v2/util/gconv"
@@ -349,4 +352,38 @@ func (c *Client) apiErrorHandler(err error) error {
 	}
 
 	return err
+}
+
+func makeRequest(requestUrl string, token string, requestBody map[string]interface{}) (body io.ReadCloser, error error) {
+	jsonBody, err := json.Marshal(requestBody)
+	if err != nil {
+		fmt.Println("Error marshalling JSON:", err)
+		return nil, err
+	}
+	// 创建HTTP请求
+	req, err := http.NewRequest("POST", requestUrl, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		fmt.Println("Error creating request:", err)
+		return nil, err
+	}
+
+	// 设置请求头
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+
+	// 发送HTTP请求
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Error sending request:", err)
+		return nil, err
+	}
+
+	// 检查响应状态码
+	if resp.StatusCode != http.StatusOK {
+		logger.Errorf(context.Background(), "Unexpected status code: %d, url: %v, request: %v", resp.StatusCode, requestUrl, requestBody)
+		return nil, errors.New(fmt.Sprintf("unexpected status code: %d", resp.StatusCode))
+	}
+	return resp.Body, nil
 }

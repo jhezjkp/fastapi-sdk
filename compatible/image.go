@@ -1,7 +1,6 @@
 package compatible
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -18,42 +17,6 @@ import (
 	"io"
 	"net/http"
 )
-
-func genImage(requestUrl string, token string, requestBody map[string]interface{},
-	bodyPrcessor func(body io.ReadCloser) (bool, string, error)) (bool, string, error) {
-	jsonBody, err := json.Marshal(requestBody)
-	if err != nil {
-		fmt.Println("Error marshalling JSON:", err)
-		return false, "", err
-	}
-	// 创建HTTP请求
-	req, err := http.NewRequest("POST", requestUrl, bytes.NewBuffer(jsonBody))
-	if err != nil {
-		fmt.Println("Error creating request:", err)
-		return false, "", err
-	}
-
-	// 设置请求头
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", "application/json")
-
-	// 发送HTTP请求
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println("Error sending request:", err)
-		return false, "", err
-	}
-	defer resp.Body.Close()
-
-	// 检查响应状态码
-	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(context.Background(), "Unexpected status code: %d, url: %v, request: %v", resp.StatusCode, requestUrl, requestBody)
-		return false, "", errors.New(fmt.Sprintf("unexpected status code: %d", resp.StatusCode))
-	}
-	return bodyPrcessor(resp.Body)
-}
 
 func (c *Client) Image(ctx context.Context, request model.ImageRequest) (res model.ImageResponse, err error) {
 
@@ -162,7 +125,8 @@ func (c *Client) Image(ctx context.Context, request model.ImageRequest) (res mod
 
 	var innerError error
 	for i := 0; i < request.N; i++ {
-		isImgUrl, imgResult, err := genImage(requestUrl, c.apiToken, requestBody, bodyProcessor)
+		body, err := makeRequest(requestUrl, c.apiToken, requestBody)
+		isImgUrl, imgResult, err := bodyProcessor(body)
 		if err != nil {
 			innerError = err
 			continue
