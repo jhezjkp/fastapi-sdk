@@ -8,6 +8,7 @@ import (
 	"github.com/iimeta/go-openai"
 	"io"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -208,50 +209,74 @@ func TestSpeech(t *testing.T) {
 }
 
 func TestTranscription(t *testing.T) {
-	// 将你的 OpenAI API 密钥替换到此处
-	apiKey := os.Getenv("GROQ_API_KEY")
-
-	// 要转录的音频文件路径
-	filePath := "/Users/vivia/workspace/whisper.cpp/samples/jfk.mp3"
-
-	// 创建一个新的 HTTP 请求
-	//url := "https://api.groq.com/openai/v1/audio/transcriptions"
-	baseUrl := "https://api.groq.com/openai/v1"
-
-	// 创建一个新的 OpenAI 客户端
-	config := openai.DefaultConfig(apiKey)
-
-	config.BaseURL = baseUrl
-	client := openai.NewClientWithConfig(config)
-
-	// 打开音频文件
-	audioFile, err := os.Open(filePath)
-	if err != nil {
-		panic(err)
+	// 注意：groq不允许中国大陆地区访问，会报403
+	cases := []struct {
+		Corp    string
+		Model   string
+		BaseURL string
+		Path    string
+		EnvKey  string
+	}{
+		{consts.CORP_GROQ, "whisper-large-v3", "https://api.groq.com/openai/v1", "/audio/transcriptions", "GROQ_API_KEY"},
+		{consts.CORP_SILICONFLOW, "iic/SenseVoiceSmall", "https://api.siliconflow.cn/v1", "/audio/transcriptions", "SILICONFLOW_API_KEY"},
 	}
-	defer audioFile.Close()
+	for _, c := range cases {
+		t.Run(c.Corp, func(t *testing.T) {
+			//corp := c.Corp
+			modelName := c.Model
+			apiKey := os.Getenv(c.EnvKey)
+			baseUrl := c.BaseURL
+			//path := c.Path
 
-	// 创建音频转录请求
-	req := openai.AudioRequest{
-		Model:    "whisper-large-v3",
-		FilePath: filePath,
-		Reader:   audioFile,
+			// 要转录的音频文件路径
+			filePath := "/Users/vivia/workspace/whisper.cpp/samples/jfk.mp3"
+
+			// 创建一个新的 OpenAI 客户端
+			config := openai.DefaultConfig(apiKey)
+
+			config.BaseURL = baseUrl
+			client := openai.NewClientWithConfig(config)
+
+			// 打开音频文件
+			audioFile, err := os.Open(filePath)
+			if err != nil {
+				panic(err)
+			}
+			defer audioFile.Close()
+
+			// 创建音频转录请求
+			req := openai.AudioRequest{
+				Model:       modelName,
+				FilePath:    filePath,
+				Reader:      audioFile,
+				Prompt:      "transcribe the following speech",
+				Temperature: 0.0,
+				Language:    "en",
+				Format:      openai.AudioResponseFormatJSON,
+			}
+
+			// 发送请求并获取响应
+			resp, err := client.CreateTranscription(context.Background(), req)
+			if err != nil {
+				if apiErr, ok := err.(*openai.APIError); ok {
+					fmt.Printf("OpenAI API error: %v\n", apiErr)
+					fmt.Printf("Response Body: %s\n", apiErr.Type)
+					fmt.Printf("Request ID: %s\n", apiErr.Message)
+				} else {
+					fmt.Printf("Error: %v\n", err)
+				}
+
+				t.FailNow()
+			}
+
+			// 打印转录文本
+			fmt.Println(resp.Text)
+			// check if the transcription contains "And so my fellow Americans"
+			if strings.Index(resp.Text, "And so my fellow Americans") == -1 {
+				t.Errorf("Transcription does not contain expected text")
+				t.FailNow()
+			}
+		})
 	}
 
-	// 发送请求并获取响应
-	resp, err := client.CreateTranscription(context.Background(), req)
-	if err != nil {
-		if apiErr, ok := err.(*openai.APIError); ok {
-			fmt.Printf("OpenAI API error: %v\n", apiErr)
-			fmt.Printf("Response Body: %s\n", apiErr.Type)
-			fmt.Printf("Request ID: %s\n", apiErr.Message)
-		} else {
-			fmt.Printf("Error: %v\n", err)
-		}
-
-		panic(err)
-	}
-
-	// 打印转录文本
-	fmt.Println(resp.Text)
 }
