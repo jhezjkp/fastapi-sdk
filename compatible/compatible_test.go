@@ -206,3 +206,52 @@ func TestSpeech(t *testing.T) {
 	}
 
 }
+
+func TestTranscription(t *testing.T) {
+	// 将你的 OpenAI API 密钥替换到此处
+	apiKey := os.Getenv("GROQ_API_KEY")
+
+	// 要转录的音频文件路径
+	filePath := "/Users/vivia/workspace/whisper.cpp/samples/jfk.mp3"
+
+	// 创建一个新的 HTTP 请求
+	//url := "https://api.groq.com/openai/v1/audio/transcriptions"
+	baseUrl := "https://api.groq.com/openai/v1"
+
+	// 创建一个新的 OpenAI 客户端
+	config := openai.DefaultConfig(apiKey)
+
+	config.BaseURL = baseUrl
+	client := openai.NewClientWithConfig(config)
+
+	// 打开音频文件
+	audioFile, err := os.Open(filePath)
+	if err != nil {
+		panic(err)
+	}
+	defer audioFile.Close()
+
+	// 创建音频转录请求
+	req := openai.AudioRequest{
+		Model:    "whisper-large-v3",
+		FilePath: filePath,
+		Reader:   audioFile,
+	}
+
+	// 发送请求并获取响应
+	resp, err := client.CreateTranscription(context.Background(), req)
+	if err != nil {
+		if apiErr, ok := err.(*openai.APIError); ok {
+			fmt.Printf("OpenAI API error: %v\n", apiErr)
+			fmt.Printf("Response Body: %s\n", apiErr.Type)
+			fmt.Printf("Request ID: %s\n", apiErr.Message)
+		} else {
+			fmt.Printf("Error: %v\n", err)
+		}
+
+		panic(err)
+	}
+
+	// 打印转录文本
+	fmt.Println(resp.Text)
+}
