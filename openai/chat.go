@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/gogf/gf/v2/os/grpool"
 	"github.com/gogf/gf/v2/os/gtime"
+	"github.com/gogf/gf/v2/text/gstr"
 	"github.com/iimeta/fastapi-sdk/logger"
 	"github.com/iimeta/fastapi-sdk/model"
 	"github.com/iimeta/go-openai"
@@ -36,29 +37,39 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 		messages = append(messages, chatCompletionMessage)
 	}
 
-	response, err := c.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model:             request.Model,
-		Messages:          messages,
-		MaxTokens:         request.MaxTokens,
-		Temperature:       request.Temperature,
-		TopP:              request.TopP,
-		N:                 request.N,
-		Stream:            request.Stream,
-		Stop:              request.Stop,
-		PresencePenalty:   request.PresencePenalty,
-		ResponseFormat:    request.ResponseFormat,
-		Seed:              request.Seed,
-		FrequencyPenalty:  request.FrequencyPenalty,
-		LogitBias:         request.LogitBias,
-		LogProbs:          request.LogProbs,
-		TopLogProbs:       request.TopLogProbs,
-		User:              request.User,
-		Functions:         request.Functions,
-		FunctionCall:      request.FunctionCall,
-		Tools:             request.Tools,
-		ToolChoice:        request.ToolChoice,
-		ParallelToolCalls: request.ParallelToolCalls,
-	})
+	chatCompletionRequest := openai.ChatCompletionRequest{
+		Model:               request.Model,
+		Messages:            messages,
+		MaxTokens:           request.MaxTokens,
+		MaxCompletionTokens: request.MaxCompletionTokens,
+		Temperature:         request.Temperature,
+		TopP:                request.TopP,
+		N:                   request.N,
+		Stream:              request.Stream,
+		Stop:                request.Stop,
+		PresencePenalty:     request.PresencePenalty,
+		ResponseFormat:      request.ResponseFormat,
+		Seed:                request.Seed,
+		FrequencyPenalty:    request.FrequencyPenalty,
+		LogitBias:           request.LogitBias,
+		LogProbs:            request.LogProbs,
+		TopLogProbs:         request.TopLogProbs,
+		User:                request.User,
+		Functions:           request.Functions,
+		FunctionCall:        request.FunctionCall,
+		Tools:               request.Tools,
+		ToolChoice:          request.ToolChoice,
+		ParallelToolCalls:   request.ParallelToolCalls,
+	}
+
+	if gstr.HasPrefix(chatCompletionRequest.Model, "o1-") {
+		if chatCompletionRequest.MaxCompletionTokens == 0 && chatCompletionRequest.MaxTokens != 0 {
+			chatCompletionRequest.MaxCompletionTokens = chatCompletionRequest.MaxTokens
+		}
+		chatCompletionRequest.MaxTokens = 0
+	}
+
+	response, err := c.client.CreateChatCompletion(ctx, chatCompletionRequest)
 	if err != nil {
 		logger.Errorf(ctx, "ChatCompletion OpenAI model: %s, error: %v", request.Model, err)
 		return res, c.apiErrorHandler(err)
@@ -72,9 +83,10 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 		Created: response.Created,
 		Model:   response.Model,
 		Usage: &model.Usage{
-			PromptTokens:     response.Usage.PromptTokens,
-			CompletionTokens: response.Usage.CompletionTokens,
-			TotalTokens:      response.Usage.TotalTokens,
+			PromptTokens:            response.Usage.PromptTokens,
+			CompletionTokens:        response.Usage.CompletionTokens,
+			TotalTokens:             response.Usage.TotalTokens,
+			CompletionTokensDetails: response.Usage.CompletionTokensDetails,
 		},
 		SystemFingerprint: response.SystemFingerprint,
 	}
@@ -124,30 +136,40 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 		}
 	}
 
-	stream, err := c.client.CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
-		Model:             request.Model,
-		Messages:          messages,
-		MaxTokens:         request.MaxTokens,
-		Temperature:       request.Temperature,
-		TopP:              request.TopP,
-		N:                 request.N,
-		Stream:            request.Stream,
-		Stop:              request.Stop,
-		PresencePenalty:   request.PresencePenalty,
-		ResponseFormat:    request.ResponseFormat,
-		Seed:              request.Seed,
-		FrequencyPenalty:  request.FrequencyPenalty,
-		LogitBias:         request.LogitBias,
-		LogProbs:          request.LogProbs,
-		TopLogProbs:       request.TopLogProbs,
-		User:              request.User,
-		Functions:         request.Functions,
-		FunctionCall:      request.FunctionCall,
-		Tools:             request.Tools,
-		ToolChoice:        request.ToolChoice,
-		StreamOptions:     request.StreamOptions,
-		ParallelToolCalls: request.ParallelToolCalls,
-	})
+	chatCompletionRequest := openai.ChatCompletionRequest{
+		Model:               request.Model,
+		Messages:            messages,
+		MaxTokens:           request.MaxTokens,
+		MaxCompletionTokens: request.MaxCompletionTokens,
+		Temperature:         request.Temperature,
+		TopP:                request.TopP,
+		N:                   request.N,
+		Stream:              request.Stream,
+		Stop:                request.Stop,
+		PresencePenalty:     request.PresencePenalty,
+		ResponseFormat:      request.ResponseFormat,
+		Seed:                request.Seed,
+		FrequencyPenalty:    request.FrequencyPenalty,
+		LogitBias:           request.LogitBias,
+		LogProbs:            request.LogProbs,
+		TopLogProbs:         request.TopLogProbs,
+		User:                request.User,
+		Functions:           request.Functions,
+		FunctionCall:        request.FunctionCall,
+		Tools:               request.Tools,
+		ToolChoice:          request.ToolChoice,
+		StreamOptions:       request.StreamOptions,
+		ParallelToolCalls:   request.ParallelToolCalls,
+	}
+
+	if gstr.HasPrefix(chatCompletionRequest.Model, "o1-") {
+		if chatCompletionRequest.MaxCompletionTokens == 0 && chatCompletionRequest.MaxTokens != 0 {
+			chatCompletionRequest.MaxCompletionTokens = chatCompletionRequest.MaxTokens
+		}
+		chatCompletionRequest.MaxTokens = 0
+	}
+
+	stream, err := c.client.CreateChatCompletionStream(ctx, chatCompletionRequest)
 	if err != nil {
 		logger.Errorf(ctx, "ChatCompletionStream OpenAI model: %s, error: %v", request.Model, err)
 		return responseChan, c.apiErrorHandler(err)
@@ -210,9 +232,10 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 			if streamResponse.Usage != nil {
 
 				response.Usage = &model.Usage{
-					PromptTokens:     streamResponse.Usage.PromptTokens,
-					CompletionTokens: streamResponse.Usage.CompletionTokens,
-					TotalTokens:      streamResponse.Usage.TotalTokens,
+					PromptTokens:            streamResponse.Usage.PromptTokens,
+					CompletionTokens:        streamResponse.Usage.CompletionTokens,
+					TotalTokens:             streamResponse.Usage.TotalTokens,
+					CompletionTokensDetails: streamResponse.Usage.CompletionTokensDetails,
 				}
 
 				if len(response.Choices) == 0 {
