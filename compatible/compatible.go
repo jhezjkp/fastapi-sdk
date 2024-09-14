@@ -25,6 +25,7 @@ import (
 
 type Client struct {
 	corp                string
+	model               string // 实际调用的模型名称
 	oss                 *oss.Oss
 	apiToken            string
 	baseURL             string
@@ -44,6 +45,7 @@ func NewClient(ctx context.Context, corp, model, key, baseURL, path string, isSu
 
 	return &Client{
 		corp:                corp,
+		model:               model,
 		oss:                 &oss.Oss{Endpoint: endpoint, Region: region, AccessKey: accessKey, SecretKey: secretKey, Bucket: bucket, Domain: domain},
 		apiToken:            key,
 		baseURL:             baseURL,

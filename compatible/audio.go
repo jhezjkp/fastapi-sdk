@@ -74,7 +74,7 @@ func (c *Client) Transcription(ctx context.Context, request model.AudioRequest) 
 	}()
 
 	response, err := c.buildOpenAiClient(ctx).CreateTranscription(ctx, openai.AudioRequest{
-		Model:                  request.Model,
+		Model:                  c.model,
 		FilePath:               request.FilePath,
 		Reader:                 request.Reader,
 		Prompt:                 request.Prompt,
