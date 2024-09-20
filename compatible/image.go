@@ -126,6 +126,10 @@ func (c *Client) Image(ctx context.Context, request model.ImageRequest) (res mod
 	var innerError error
 	for i := 0; i < request.N; i++ {
 		body, err := makeRequest(requestUrl, c.apiToken, requestBody)
+		if err != nil {
+			innerError = err
+			continue
+		}
 		isImgUrl, imgResult, err := bodyProcessor(body)
 		if err != nil {
 			innerError = err
