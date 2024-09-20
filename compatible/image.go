@@ -101,6 +101,11 @@ func (c *Client) Image(ctx context.Context, request model.ImageRequest) (res mod
 			return false, base64.StdEncoding.EncodeToString(imageBytes), nil
 		}
 	case consts.CORP_SILICONFLOW: // 返回的是url
+		// 请求参数有不同
+		requestBody["model"] = c.model
+		requestBody["image_size"] = fmt.Sprintf("%dx%d", width, height)
+		delete(requestBody, "width")
+		delete(requestBody, "height")
 		bodyProcessor = func(body io.ReadCloser) (bool, string, error) {
 			// convert the response body to a map
 			var result map[string]interface{}
