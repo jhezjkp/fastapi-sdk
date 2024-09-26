@@ -134,7 +134,6 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 	if c.corp != consts.CORP_HYPERBOLIC && c.corp != consts.CORP_SILICONFLOW {
 		completionRequest.MaxTokens = request.MaxTokens // Hyperbolic传了这个参数报400错误，先针对Hyperbolic屏蔽该参数
 	}
-	fmt.Println(request)
 	response, err := c.buildOpenAiClient(ctx).CreateChatCompletion(ctx, completionRequest)
 	if err != nil {
 		logger.Errorf(ctx, "ChatCompletion %s model: %s, error: %v", c.corp, request.Model, err)
