@@ -191,7 +191,7 @@ func (c *Client) Image(ctx context.Context, request model.ImageRequest) (res mod
 	}
 	// 如果N=1且有错误，则返回错误
 	if request.N == 1 && innerError != nil {
-		logger.Errorf(ctx, "Image %s model: %s, error: %v", c.corp, request.Model, err)
+		logger.Errorf(ctx, "Image %s model: %s, error: %v", c.corp, request.Model, innerError)
 		return res, innerError
 	}
 	return res, nil
