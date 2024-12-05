@@ -17,18 +17,21 @@
 
 ## 支持模型
 
-| 公司                                  | Completion | Image | Audio | Multimodal | Realtime | Embedding | Moderation |
-|---------------------------------------|------------|-------|-------|------------|----------|-----------|------------|
-| OpenAI<br/>Azure                      | ✔️         | ✔️    | ✔️    | ✔️         | ✔️       | ✔️       | ✔️         |
-| 百度                                  | ✔️         |       |       |            |          |           |            |
-| 科大讯飞                              | ✔️         | ✔️    |       |            |          |           |            |
-| 阿里云                                | ✔️         |       |       |            |          |           |            |
-| 智谱AI                                | ✔️         |       |       |            |          |           |            |
-| Google                                | ✔️         |       |       | ✔️         |          |  ️         |  ️          |
-| DeepSeek                              | ✔️         |       |       |            |          |           |            |
-| 360智脑                               | ✔️         |       |       |            |          |           |            |
-| Midjourney                            |            | ✔️    |       |            |          |           |            |
-| Anthropic<br/>GCPClaude<br/>AWSClaude | ✔️         |       |       |            |          |           |            |
+| 公司       | Completion | Image | Audio | Multimodal | Realtime | Embedding | Moderation |
+| ---------- | ---------- | ----- | ----- | ---------- | -------- | --------- | ---------- |
+| OpenAI     | ✔️         | ✔️    | ✔️     | ✔️         | ✔️       | ✔️        | ✔️         |
+| Azure      | ✔️         | ✔️    | ✔️     | ✔️         |          | ✔️        | ✔️         |
+| 百度       | ✔️         |       |       |            |          |           |            |
+| 科大讯飞   | ✔️         | ✔️    |       |            |          |           |            |
+| 阿里云     | ✔️         |       |       |            |          |           |            |
+| 智谱AI     | ✔️         |       |       |            |          |           |            |
+| Google     | ✔️         |       |       | ✔️         |          |           |            |
+| DeepSeek   | ✔️         |       |       |            |          |           |            |
+| 360智脑    | ✔️         |       |       |            |          |           |            |
+| Midjourney |            | ✔️    |       |            |          |           |            |
+| Anthropic  | ✔️         |       |       | ✔️         |          |           |            |
+| GCPClaude  | ✔️         |       |       | ✔️         |          |           |            |
+| AWSClaude  | ✔️         |       |       | ✔️         |          |           |            |
 
 ## 项目预览
 
@@ -37,6 +40,17 @@
 
 - 管理端: https://demo.fastapi.ai/admin
 - 账号/密码: admin/admin123
+
+## 专业版预览
+
+- 用户端: https://demo.fastapi.pro/login
+- 账号/密码: user@fastapi.pro/user@fastapi.pro
+
+- 代理商: https://demo.fastapi.pro/reseller
+- 账号/密码: reseller@fastapi.pro/reseller@fastapi.pro
+
+- 管理端: https://demo.fastapi.pro/admin
+- 账号/密码: admin@fastapi.pro/admin@fastapi.pro
 
 ## 公益站点
 
@@ -69,7 +83,7 @@
 <img src="https://iim.ai/public/images/Author.png?t=20231207" width="320" alt="作者"/>
 
 ## 交流群
-<img src="https://iim.ai/public/images/WeChatGroup.jpg?t=20241105" width="320" alt="交流群"/>
+<img src="https://iim.ai/public/images/WeChatGroup.jpg?t=20241128" width="320" alt="交流群"/>
 
 
 ![Star History Chart](https://api.star-history.com/svg?repos=iimeta/fastapi-sdk&type=Date)
