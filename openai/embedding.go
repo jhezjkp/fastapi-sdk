@@ -1,4 +1,4 @@
-package sdk
+package openai
 
 import (
 	"context"
@@ -6,46 +6,9 @@ import (
 	"github.com/iimeta/fastapi-sdk/logger"
 	"github.com/iimeta/fastapi-sdk/model"
 	"github.com/iimeta/go-openai"
-	"net/http"
-	"net/url"
 )
 
-type EmbeddingClient struct {
-	client *openai.Client
-}
-
-func NewEmbeddingClient(ctx context.Context, model, key, baseURL, path string, proxyURL ...string) *EmbeddingClient {
-
-	logger.Infof(ctx, "NewClient OpenAI model: %s, key: %s", model, key)
-
-	config := openai.DefaultConfig(key)
-
-	if baseURL != "" {
-		logger.Infof(ctx, "NewClient OpenAI model: %s, baseURL: %s", model, baseURL)
-		config.BaseURL = baseURL
-	}
-
-	if len(proxyURL) > 0 && proxyURL[0] != "" {
-		logger.Infof(ctx, "NewClient OpenAI model: %s, proxyURL: %s", model, proxyURL[0])
-
-		proxyUrl, err := url.Parse(proxyURL[0])
-		if err != nil {
-			panic(err)
-		}
-
-		config.HTTPClient = &http.Client{
-			Transport: &http.Transport{
-				Proxy: http.ProxyURL(proxyUrl),
-			},
-		}
-	}
-
-	return &EmbeddingClient{
-		client: openai.NewClientWithConfig(config),
-	}
-}
-
-func (c *EmbeddingClient) Embeddings(ctx context.Context, request model.EmbeddingRequest) (res model.EmbeddingResponse, err error) {
+func (c *Client) Embeddings(ctx context.Context, request model.EmbeddingRequest) (res model.EmbeddingResponse, err error) {
 
 	logger.Infof(ctx, "Embeddings OpenAI model: %s start", request.Model)
 
@@ -55,7 +18,7 @@ func (c *EmbeddingClient) Embeddings(ctx context.Context, request model.Embeddin
 		logger.Infof(ctx, "Embeddings OpenAI model: %s totalTime: %d ms", request.Model, res.TotalTime)
 	}()
 
-	response, err := c.client.CreateEmbeddings(context.Background(), openai.EmbeddingRequest{
+	response, err := c.client.CreateEmbeddings(ctx, openai.EmbeddingRequest{
 		Input:          request.Input,
 		Model:          request.Model,
 		User:           request.User,
