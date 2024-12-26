@@ -389,3 +389,13 @@ func makeRequest(requestUrl string, token string, requestBody map[string]interfa
 	}
 	return resp.Body, nil
 }
+
+func (c *Client) Embeddings(ctx context.Context, request model.EmbeddingRequest) (res model.EmbeddingResponse, err error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (c *Client) Moderations(ctx context.Context, request model.ModerationRequest) (res model.ModerationResponse, err error) {
+	//TODO implement me
+	panic("implement me")
+}
