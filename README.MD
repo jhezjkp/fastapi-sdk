@@ -1,6 +1,6 @@
 <div align=center>
 
-<img src="https://iim.ai/public/images/logo.png?t=20231207" width="128"/>
+<img src="https://www.fastapi.ai/logo.png" width="128"/>
 
 # 智元 Fast API SDK
 
@@ -13,7 +13,7 @@
 `智元 Fast API` 是一站式API管理系统，将各类LLM API进行统一格式、统一规范、统一管理，使其在功能、性能和用户体验上达到极致。
 
 ## 功能介绍
-智元 Fast API SDK模块, 主要集成各类 `LLM API` 的能力
+智元 Fast API SDK 模块, 主要集成各类 `LLM API` 的能力
 
 ## 支持模型
 
@@ -55,7 +55,7 @@
 ## 公益站点
 
 - API地址: https://api.free.fastapi.ai
-- 注册后请联系作者领取1000万额度
+- 注册即送1000万额度, 使用上方API地址调用即可
 
 ## 项目截图
 ### 管理端
@@ -83,7 +83,7 @@
 <img src="https://iim.ai/public/images/Author.png?t=20231207" width="320" alt="作者"/>
 
 ## 交流群
-<img src="https://iim.ai/public/images/WeChatGroup.jpg?t=20241128" width="320" alt="交流群"/>
+<img src="https://iim.ai/public/images/WeChatGroup.jpg?t=20241219" width="320" alt="交流群"/>
 
 
 ![Star History Chart](https://api.star-history.com/svg?repos=iimeta/fastapi-sdk&type=Date)
