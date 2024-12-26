@@ -19,7 +19,7 @@ func TestChatCompletion(t *testing.T) {
 		BaseURL string
 		EnvKey  string
 	}{
-		{consts.CORP_HYPERBOLIC, "meta-llama/Meta-Llama-3.1-8B-Instruct", "https://api.hyperbolic.xyz/v1", "HYPERBOLIC_API_KEY"},
+		{consts.CORP_HYPERBOLIC, "meta-llama/Llama-3.2-3B-Instruct", "https://api.hyperbolic.xyz/v1", "HYPERBOLIC_API_KEY"},
 		{consts.CORP_DEEPSEEK, "deepseek-chat", "https://api.deepseek.com/v1", "DEEPSEEK_API_KEY"},
 		{consts.CORP_SILICONFLOW, "Qwen/Qwen2-7B-Instruct", "https://api.siliconflow.cn/v1", "SILICONFLOW_API_KEY"},
 		{consts.CORP_CLOUDFLARE, "@cf/meta/llama-3.1-8b-instruct",
