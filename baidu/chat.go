@@ -59,8 +59,7 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 	}
 
 	chatCompletionRes := new(model.BaiduChatCompletionRes)
-	err = util.HttpPost(ctx, fmt.Sprintf("%s?access_token=%s", c.baseURL+c.path, c.accessToken), nil, chatCompletionReq, &chatCompletionRes, c.proxyURL)
-	if err != nil {
+	if _, err = util.HttpPost(ctx, fmt.Sprintf("%s?access_token=%s", c.baseURL+c.path, c.accessToken), nil, chatCompletionReq, &chatCompletionRes, c.proxyURL); err != nil {
 		logger.Errorf(ctx, "ChatCompletion Baidu model: %s, error: %v", request.Model, err)
 		return
 	}
@@ -80,7 +79,7 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 		Created: chatCompletionRes.Created,
 		Model:   request.Model,
 		Choices: []model.ChatCompletionChoice{{
-			Message: &openai.ChatCompletionMessage{
+			Message: &model.ChatCompletionMessage{
 				Role:    consts.ROLE_ASSISTANT,
 				Content: chatCompletionRes.Result,
 			},
@@ -213,7 +212,7 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 				Model:   request.Model,
 				Choices: []model.ChatCompletionChoice{{
 					Index: chatCompletionRes.SentenceId,
-					Delta: &openai.ChatCompletionStreamChoiceDelta{
+					Delta: &model.ChatCompletionStreamChoiceDelta{
 						Role:    consts.ROLE_ASSISTANT,
 						Content: chatCompletionRes.Result,
 					},

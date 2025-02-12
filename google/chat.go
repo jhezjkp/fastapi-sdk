@@ -7,7 +7,6 @@ import (
 	"github.com/gogf/gf/v2/encoding/gjson"
 	"github.com/gogf/gf/v2/os/grpool"
 	"github.com/gogf/gf/v2/os/gtime"
-	"github.com/gogf/gf/v2/text/gstr"
 	"github.com/gogf/gf/v2/util/gconv"
 	"github.com/gogf/gf/v2/util/grand"
 	"github.com/iimeta/fastapi-sdk/common"
@@ -57,35 +56,14 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 
 						if imageUrl, ok := content["image_url"].(map[string]interface{}); ok {
 
-							url := gconv.String(imageUrl["url"])
+							mimeType, data := common.GetMime(gconv.String(imageUrl["url"]))
 
-							if gstr.HasPrefix(url, "data:image/") {
-								base64 := gstr.Split(url, "base64,")
-								if len(base64) > 1 {
-									// data:image/jpeg;base64,
-									mimeType := fmt.Sprintf("image/%s", gstr.Split(base64[0][11:], ";")[0])
-									parts = append(parts, model.Part{
-										InlineData: &model.InlineData{
-											MimeType: mimeType,
-											Data:     base64[1],
-										},
-									})
-								} else {
-									parts = append(parts, model.Part{
-										InlineData: &model.InlineData{
-											MimeType: "image/jpeg",
-											Data:     base64[0],
-										},
-									})
-								}
-							} else {
-								parts = append(parts, model.Part{
-									InlineData: &model.InlineData{
-										MimeType: "image/jpeg",
-										Data:     url,
-									},
-								})
-							}
+							parts = append(parts, model.Part{
+								InlineData: &model.InlineData{
+									MimeType: mimeType,
+									Data:     data,
+								},
+							})
 						}
 
 					} else if content["type"] == "video_url" {
@@ -128,11 +106,11 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 			Temperature:     request.Temperature,
 			TopP:            request.TopP,
 		},
+		Tools: request.Tools,
 	}
 
 	chatCompletionRes := new(model.GoogleChatCompletionRes)
-	err = util.HttpPost(ctx, fmt.Sprintf("%s:generateContent?key=%s", c.baseURL+c.path, c.key), nil, chatCompletionReq, &chatCompletionRes, c.proxyURL)
-	if err != nil {
+	if _, err = util.HttpPost(ctx, fmt.Sprintf("%s:generateContent?key=%s", c.baseURL+c.path, c.key), nil, chatCompletionReq, &chatCompletionRes, c.proxyURL); err != nil {
 		logger.Errorf(ctx, "ChatCompletion Google model: %s, error: %v", request.Model, err)
 		return
 	}
@@ -151,18 +129,22 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 		Object:  consts.COMPLETION_OBJECT,
 		Created: gtime.Timestamp(),
 		Model:   request.Model,
-		Choices: []model.ChatCompletionChoice{{
-			Message: &openai.ChatCompletionMessage{
-				Role:    consts.ROLE_ASSISTANT,
-				Content: chatCompletionRes.Candidates[0].Content.Parts[0].Text,
-			},
-			FinishReason: openai.FinishReasonStop,
-		}},
 		Usage: &model.Usage{
 			PromptTokens:     chatCompletionRes.UsageMetadata.PromptTokenCount,
 			CompletionTokens: chatCompletionRes.UsageMetadata.CandidatesTokenCount,
 			TotalTokens:      chatCompletionRes.UsageMetadata.TotalTokenCount,
 		},
+	}
+
+	for i, part := range chatCompletionRes.Candidates[0].Content.Parts {
+		res.Choices = append(res.Choices, model.ChatCompletionChoice{
+			Index: i,
+			Message: &model.ChatCompletionMessage{
+				Role:    consts.ROLE_ASSISTANT,
+				Content: part.Text,
+			},
+			FinishReason: openai.FinishReasonStop,
+		})
 	}
 
 	return res, nil
@@ -207,35 +189,14 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 
 						if imageUrl, ok := content["image_url"].(map[string]interface{}); ok {
 
-							url := gconv.String(imageUrl["url"])
+							mimeType, data := common.GetMime(gconv.String(imageUrl["url"]))
 
-							if gstr.HasPrefix(url, "data:image/") {
-								base64 := gstr.Split(url, "base64,")
-								if len(base64) > 1 {
-									// data:image/jpeg;base64,
-									mimeType := fmt.Sprintf("image/%s", gstr.Split(base64[0][11:], ";")[0])
-									parts = append(parts, model.Part{
-										InlineData: &model.InlineData{
-											MimeType: mimeType,
-											Data:     base64[1],
-										},
-									})
-								} else {
-									parts = append(parts, model.Part{
-										InlineData: &model.InlineData{
-											MimeType: "image/jpeg",
-											Data:     base64[0],
-										},
-									})
-								}
-							} else {
-								parts = append(parts, model.Part{
-									InlineData: &model.InlineData{
-										MimeType: "image/jpeg",
-										Data:     url,
-									},
-								})
-							}
+							parts = append(parts, model.Part{
+								InlineData: &model.InlineData{
+									MimeType: mimeType,
+									Data:     data,
+								},
+							})
 						}
 
 					} else if content["type"] == "video_url" {
@@ -278,6 +239,7 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 			Temperature:     request.Temperature,
 			TopP:            request.TopP,
 		},
+		Tools: request.Tools,
 	}
 
 	stream, err := util.SSEClient(ctx, fmt.Sprintf("%s:streamGenerateContent?alt=sse&key=%s", c.baseURL+c.path, c.key), nil, chatCompletionReq, c.proxyURL, c.requestErrorHandler)
@@ -337,7 +299,7 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 					Created: created,
 					Model:   request.Model,
 					Choices: []model.ChatCompletionChoice{{
-						Delta:        &openai.ChatCompletionStreamChoiceDelta{},
+						Delta:        &model.ChatCompletionStreamChoiceDelta{},
 						FinishReason: openai.FinishReasonStop,
 					}},
 					Usage:     usage,
@@ -401,15 +363,19 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 				Object:  consts.COMPLETION_STREAM_OBJECT,
 				Created: created,
 				Model:   request.Model,
-				Choices: []model.ChatCompletionChoice{{
-					Index: chatCompletionRes.Candidates[0].Index,
-					Delta: &openai.ChatCompletionStreamChoiceDelta{
-						Role:    consts.ROLE_ASSISTANT,
-						Content: chatCompletionRes.Candidates[0].Content.Parts[0].Text,
-					},
-				}},
+
 				Usage:    usage,
 				ConnTime: duration - now,
+			}
+
+			for _, candidate := range chatCompletionRes.Candidates {
+				response.Choices = append(response.Choices, model.ChatCompletionChoice{
+					Index: candidate.Index,
+					Delta: &model.ChatCompletionStreamChoiceDelta{
+						Role:    consts.ROLE_ASSISTANT,
+						Content: candidate.Content.Parts[0].Text,
+					},
+				})
 			}
 
 			end := gtime.TimestampMilli()

@@ -10,25 +10,30 @@ type AnthropicChatCompletionReq struct {
 	System           any                     `json:"system,omitempty"`
 	Temperature      float32                 `json:"temperature,omitempty"`
 	ToolChoice       any                     `json:"tool_choice,omitempty"`
-	Tools            []AnthropicTool         `json:"tools,omitempty"`
+	Tools            any                     `json:"tools,omitempty"`
 	TopK             int                     `json:"top_k,omitempty"`
 	TopP             float32                 `json:"top_p,omitempty"`
 	AnthropicVersion string                  `json:"anthropic_version,omitempty"`
 }
 
 type AnthropicChatCompletionRes struct {
-	Id           string             `json:"id"`
-	Type         string             `json:"type"`
-	Role         string             `json:"role"`
-	Content      []AnthropicContent `json:"content"`
-	Model        string             `json:"model"`
-	StopReason   string             `json:"stop_reason"`
-	StopSequence string             `json:"stop_sequence"`
-	Message      AnthropicMessage   `json:"message"`
-	Index        int                `json:"index"`
-	Delta        AnthropicContent   `json:"delta"`
-	Usage        *AnthropicUsage    `json:"usage,omitempty"`
-	Error        *AnthropicError    `json:"error,omitempty"`
+	Id            string             `json:"id"`
+	Type          string             `json:"type"`
+	Role          string             `json:"role"`
+	Content       []AnthropicContent `json:"content"`
+	Model         string             `json:"model"`
+	StopReason    string             `json:"stop_reason"`
+	StopSequence  string             `json:"stop_sequence"`
+	Message       AnthropicMessage   `json:"message"`
+	Index         int                `json:"index"`
+	Delta         AnthropicContent   `json:"delta"`
+	Usage         *AnthropicUsage    `json:"usage,omitempty"`
+	Error         *AnthropicError    `json:"error,omitempty"`
+	ResponseBytes []byte             `json:"-"`
+	ConnTime      int64              `json:"-"`
+	Duration      int64              `json:"-"`
+	TotalTime     int64              `json:"-"`
+	Err           error              `json:"-"`
 }
 
 type Metadata struct {
@@ -70,8 +75,10 @@ type ContentBlock struct {
 }
 
 type AnthropicUsage struct {
-	InputTokens  int `json:"input_tokens"`
-	OutputTokens int `json:"output_tokens"`
+	InputTokens              int `json:"input_tokens"`
+	OutputTokens             int `json:"output_tokens"`
+	CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
+	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
 }
 
 type AnthropicError struct {

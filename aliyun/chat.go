@@ -60,8 +60,7 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 	header["Authorization"] = "Bearer " + c.key
 
 	chatCompletionRes := new(model.AliyunChatCompletionRes)
-	err = util.HttpPost(ctx, c.baseURL+c.path, header, chatCompletionReq, &chatCompletionRes, c.proxyURL)
-	if err != nil {
+	if _, err = util.HttpPost(ctx, c.baseURL+c.path, header, chatCompletionReq, &chatCompletionRes, c.proxyURL); err != nil {
 		logger.Errorf(ctx, "ChatCompletion Aliyun model: %s, error: %v", request.Model, err)
 		return
 	}
@@ -81,7 +80,7 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 		Created: gtime.Timestamp(),
 		Model:   request.Model,
 		Choices: []model.ChatCompletionChoice{{
-			Message: &openai.ChatCompletionMessage{
+			Message: &model.ChatCompletionMessage{
 				Role:    consts.ROLE_ASSISTANT,
 				Content: chatCompletionRes.Output.Text,
 			},
@@ -197,7 +196,7 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 					Created: created,
 					Model:   request.Model,
 					Choices: []model.ChatCompletionChoice{{
-						Delta:        &openai.ChatCompletionStreamChoiceDelta{},
+						Delta:        &model.ChatCompletionStreamChoiceDelta{},
 						FinishReason: openai.FinishReasonStop,
 					}},
 					Usage:     usage,
@@ -261,7 +260,7 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 				Created: created,
 				Model:   request.Model,
 				Choices: []model.ChatCompletionChoice{{
-					Delta: &openai.ChatCompletionStreamChoiceDelta{
+					Delta: &model.ChatCompletionStreamChoiceDelta{
 						Role:    consts.ROLE_ASSISTANT,
 						Content: chatCompletionRes.Output.Text,
 					},
