@@ -40,8 +40,8 @@ type ChatCompletionRequest struct {
 	// Deprecated: use Tools instead.
 	Functions []openai.FunctionDefinition `json:"functions,omitempty"`
 	// Deprecated: use ToolChoice instead.
-	FunctionCall any           `json:"function_call,omitempty"`
-	Tools        []openai.Tool `json:"tools,omitempty"`
+	FunctionCall any `json:"function_call,omitempty"`
+	Tools        any `json:"tools,omitempty"`
 	// This can be either a string or an ToolChoice object.
 	ToolChoice any `json:"tool_choice,omitempty"`
 	// Options for streaming response. Only set this when you set stream: true.
@@ -53,6 +53,8 @@ type ChatCompletionRequest struct {
 	Store bool `json:"store,omitempty"`
 	// Metadata to store with the completion.
 	Metadata map[string]string `json:"metadata,omitempty"`
+	// o1 models only
+	ReasoningEffort string `json:"reasoning_effort,omitempty"`
 
 	Modalities []string `json:"modalities,omitempty"`
 	Audio      *struct {
@@ -79,10 +81,11 @@ type ChatCompletionResponse struct {
 }
 
 type ChatCompletionMessage struct {
-	Role         string                   `json:"role"`
-	Content      any                      `json:"content"`
-	Refusal      string                   `json:"refusal,omitempty"`
-	MultiContent []openai.ChatMessagePart `json:"-"`
+	Role             string                   `json:"role"`
+	Content          any                      `json:"content"`
+	ReasoningContent any                      `json:"reasoning_content,omitempty"`
+	Refusal          string                   `json:"refusal,omitempty"`
+	MultiContent     []openai.ChatMessagePart `json:"-"`
 
 	// This property isn't in the official documentation, but it's in
 	// the documentation for the official library for python:
@@ -102,19 +105,32 @@ type ChatCompletionMessage struct {
 }
 
 type ChatCompletionChoice struct {
-	Index        int                                     `json:"index"`
-	Message      *openai.ChatCompletionMessage           `json:"message,omitempty"`
-	Delta        *openai.ChatCompletionStreamChoiceDelta `json:"delta,omitempty"`
-	LogProbs     *openai.LogProbs                        `json:"logprobs,omitempty"`
-	FinishReason openai.FinishReason                     `json:"finish_reason"`
+	Index        int                              `json:"index"`
+	Message      *ChatCompletionMessage           `json:"message,omitempty"`
+	Delta        *ChatCompletionStreamChoiceDelta `json:"delta,omitempty"`
+	LogProbs     *openai.LogProbs                 `json:"logprobs,omitempty"`
+	FinishReason openai.FinishReason              `json:"finish_reason"`
 	//ContentFilterResults *openai.ContentFilterResults            `json:"content_filter_results,omitempty"`
 }
 
 // Usage Represents the total token usage per request to OpenAI.
 type Usage struct {
-	PromptTokens            int                             `json:"prompt_tokens"`
-	CompletionTokens        int                             `json:"completion_tokens"`
-	TotalTokens             int                             `json:"total_tokens"`
-	PromptTokensDetails     *openai.PromptTokensDetails     `json:"prompt_tokens_details"`
-	CompletionTokensDetails *openai.CompletionTokensDetails `json:"completion_tokens_details"`
+	PromptTokens             int                             `json:"prompt_tokens"`
+	CompletionTokens         int                             `json:"completion_tokens"`
+	TotalTokens              int                             `json:"total_tokens"`
+	PromptTokensDetails      *openai.PromptTokensDetails     `json:"prompt_tokens_details"`
+	CompletionTokensDetails  *openai.CompletionTokensDetails `json:"completion_tokens_details"`
+	SearchTokens             int                             `json:"search_tokens,omitempty"`
+	CacheCreationInputTokens int                             `json:"cache_creation_input_tokens,omitempty"`
+	CacheReadInputTokens     int                             `json:"cache_read_input_tokens,omitempty"`
+}
+
+type ChatCompletionStreamChoiceDelta struct {
+	Content          string               `json:"content"`
+	ReasoningContent any                  `json:"reasoning_content,omitempty"`
+	Role             string               `json:"role,omitempty"`
+	FunctionCall     *openai.FunctionCall `json:"function_call,omitempty"`
+	ToolCalls        []openai.ToolCall    `json:"tool_calls,omitempty"`
+	Refusal          string               `json:"refusal,omitempty"`
+	Audio            *openai.Audio        `json:"audio,omitempty"`
 }

@@ -4,12 +4,14 @@ import "github.com/iimeta/go-openai"
 
 type GoogleChatCompletionReq struct {
 	Contents         []Content        `json:"contents"`
-	GenerationConfig GenerationConfig `json:"generationConfig"`
+	GenerationConfig GenerationConfig `json:"generationConfig,omitempty"`
+	Tools            any              `json:"tools,omitempty"`
 }
 
 type GoogleChatCompletionRes struct {
 	Candidates    []Candidate    `json:"candidates"`
 	UsageMetadata *UsageMetadata `json:"usageMetadata"`
+	ModelVersion  string         `json:"modelVersion"`
 	Error         struct {
 		Code    int    `json:"code"`
 		Message string `json:"message"`
@@ -23,6 +25,11 @@ type GoogleChatCompletionRes struct {
 			} `json:"metadata"`
 		} `json:"details"`
 	} `json:"error"`
+	ResponseBytes []byte `json:"-"`
+	ConnTime      int64  `json:"-"`
+	Duration      int64  `json:"-"`
+	TotalTime     int64  `json:"-"`
+	Err           error  `json:"-"`
 }
 
 type Content struct {
@@ -31,9 +38,11 @@ type Content struct {
 }
 
 type Part struct {
-	Text       string      `json:"text,omitempty"`
-	InlineData *InlineData `json:"inline_data,omitempty"`
-	FileData   *FileData   `json:"file_data,omitempty"`
+	Text             string      `json:"text,omitempty"`
+	InlineData       *InlineData `json:"inline_data,omitempty"`
+	FileData         *FileData   `json:"file_data,omitempty"`
+	FunctionCall     any         `json:"functionCall,omitempty"`
+	FunctionResponse any         `json:"functionResponse,omitempty"`
 }
 
 type InlineData struct {

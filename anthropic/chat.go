@@ -10,7 +10,6 @@ import (
 	"github.com/gogf/gf/v2/encoding/gjson"
 	"github.com/gogf/gf/v2/os/grpool"
 	"github.com/gogf/gf/v2/os/gtime"
-	"github.com/gogf/gf/v2/text/gstr"
 	"github.com/gogf/gf/v2/util/gconv"
 	"github.com/iimeta/fastapi-sdk/common"
 	"github.com/iimeta/fastapi-sdk/consts"
@@ -39,16 +38,16 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 	}
 
 	chatCompletionReq := model.AnthropicChatCompletionReq{
-		Model:            request.Model,
-		Messages:         messages,
-		MaxTokens:        request.MaxTokens,
-		StopSequences:    request.Stop,
-		Stream:           request.Stream,
-		Temperature:      request.Temperature,
-		ToolChoice:       request.ToolChoice,
-		TopK:             request.TopK,
-		TopP:             request.TopP,
-		AnthropicVersion: "vertex-2023-10-16",
+		Model:         request.Model,
+		Messages:      messages,
+		MaxTokens:     request.MaxTokens,
+		StopSequences: request.Stop,
+		Stream:        request.Stream,
+		Temperature:   request.Temperature,
+		ToolChoice:    request.ToolChoice,
+		TopK:          request.TopK,
+		TopP:          request.TopP,
+		Tools:         request.Tools,
 	}
 
 	if chatCompletionReq.Messages[0].Role == consts.ROLE_SYSTEM {
@@ -60,14 +59,6 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 		chatCompletionReq.Metadata = &model.Metadata{
 			UserId: request.User,
 		}
-	}
-
-	for _, tool := range request.Tools {
-		chatCompletionReq.Tools = append(chatCompletionReq.Tools, model.AnthropicTool{
-			Name:        tool.Function.Name,
-			Description: tool.Function.Description,
-			InputSchema: tool.Function.Parameters,
-		})
 	}
 
 	if chatCompletionReq.MaxTokens == 0 {
@@ -86,31 +77,12 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 
 						if imageUrl, ok := content["image_url"].(map[string]interface{}); ok {
 
-							url := gconv.String(imageUrl["url"])
+							mimeType, data := common.GetMime(gconv.String(imageUrl["url"]))
 
-							if gstr.HasPrefix(url, "data:image/") {
-								base64 := gstr.Split(url, "base64,")
-								if len(base64) > 1 {
-									// data:image/jpeg;base64,
-									mimeType := fmt.Sprintf("image/%s", gstr.Split(base64[0][11:], ";")[0])
-									content["source"] = model.Source{
-										Type:      "base64",
-										MediaType: mimeType,
-										Data:      base64[1],
-									}
-								} else {
-									content["source"] = model.Source{
-										Type:      "base64",
-										MediaType: "image/jpeg",
-										Data:      base64[0],
-									}
-								}
-							} else {
-								content["source"] = model.Source{
-									Type:      "base64",
-									MediaType: "image/jpeg",
-									Data:      url,
-								}
+							content["source"] = model.Source{
+								Type:      "base64",
+								MediaType: mimeType,
+								Data:      data,
 							}
 
 							content["type"] = "image"
@@ -124,6 +96,7 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 
 	if c.isGcp {
 		chatCompletionReq.Model = ""
+		chatCompletionReq.AnthropicVersion = "vertex-2023-10-16"
 	}
 
 	chatCompletionRes := new(model.AnthropicChatCompletionRes)
@@ -138,29 +111,29 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 			Accept:      aws.String("application/json"),
 			ContentType: aws.String("application/json"),
 		}
+
 		chatCompletionReq.Model = ""
-		invokeModelInput.Body, err = gjson.Marshal(chatCompletionReq)
-		if err != nil {
-			logger.Error(ctx, err)
-			return
+
+		if invokeModelInput.Body, err = gjson.Marshal(chatCompletionReq); err != nil {
+			logger.Errorf(ctx, "ChatCompletion Anthropic model: %s, chatCompletionReq: %s, gjson.Marshal error: %v", c.model, gjson.MustEncodeString(chatCompletionReq), err)
+			return res, err
 		}
 
-		var invokeModelOutput *bedrockruntime.InvokeModelOutput
-		invokeModelOutput, err = c.awsClient.InvokeModel(ctx, invokeModelInput)
+		invokeModelOutput, err := c.awsClient.InvokeModel(ctx, invokeModelInput)
 		if err != nil {
-			logger.Error(ctx, err)
-			return
+			logger.Errorf(ctx, "ChatCompletion Anthropic model: %s, invokeModelInput: %s, awsClient.InvokeModel error: %v", c.model, gjson.MustEncodeString(invokeModelInput), err)
+			return res, err
 		}
 
 		if err = gjson.Unmarshal(invokeModelOutput.Body, &chatCompletionRes); err != nil {
-			logger.Error(ctx, err)
-			return
+			logger.Errorf(ctx, "ChatCompletion Anthropic model: %s, invokeModelOutput.Body: %s, gjson.Unmarshal error: %v", c.model, invokeModelOutput.Body, err)
+			return res, err
 		}
 
 	} else {
-		if err = util.HttpPost(ctx, c.baseURL+c.path, c.header, chatCompletionReq, &chatCompletionRes, c.proxyURL); err != nil {
+		if chatCompletionRes.ResponseBytes, err = util.HttpPost(ctx, c.baseURL+c.path, c.header, chatCompletionReq, &chatCompletionRes, c.proxyURL); err != nil {
 			logger.Errorf(ctx, "ChatCompletion Anthropic model: %s, error: %v", request.Model, err)
-			return
+			return res, err
 		}
 	}
 
@@ -170,7 +143,7 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 		err = c.apiErrorHandler(chatCompletionRes)
 		logger.Errorf(ctx, "ChatCompletion Anthropic model: %s, error: %v", request.Model, err)
 
-		return
+		return res, err
 	}
 
 	res = model.ChatCompletionResponse{
@@ -179,16 +152,18 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 		Created: gtime.Timestamp(),
 		Model:   request.Model,
 		Usage: &model.Usage{
-			PromptTokens:     chatCompletionRes.Usage.InputTokens,
-			CompletionTokens: chatCompletionRes.Usage.OutputTokens,
-			TotalTokens:      chatCompletionRes.Usage.InputTokens + chatCompletionRes.Usage.OutputTokens,
+			PromptTokens:             chatCompletionRes.Usage.InputTokens,
+			CompletionTokens:         chatCompletionRes.Usage.OutputTokens,
+			TotalTokens:              chatCompletionRes.Usage.InputTokens + chatCompletionRes.Usage.OutputTokens,
+			CacheCreationInputTokens: chatCompletionRes.Usage.CacheCreationInputTokens,
+			CacheReadInputTokens:     chatCompletionRes.Usage.CacheReadInputTokens,
 		},
 	}
 
 	for _, content := range chatCompletionRes.Content {
 		if content.Type == consts.DELTA_TYPE_INPUT_JSON {
 			res.Choices = append(res.Choices, model.ChatCompletionChoice{
-				Delta: &openai.ChatCompletionStreamChoiceDelta{
+				Delta: &model.ChatCompletionStreamChoiceDelta{
 					Role: consts.ROLE_ASSISTANT,
 					ToolCalls: []openai.ToolCall{{
 						Function: openai.FunctionCall{
@@ -199,7 +174,7 @@ func (c *Client) ChatCompletion(ctx context.Context, request model.ChatCompletio
 			})
 		} else {
 			res.Choices = append(res.Choices, model.ChatCompletionChoice{
-				Message: &openai.ChatCompletionMessage{
+				Message: &model.ChatCompletionMessage{
 					Role:    chatCompletionRes.Role,
 					Content: content.Text,
 				},
@@ -230,16 +205,16 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 	}
 
 	chatCompletionReq := model.AnthropicChatCompletionReq{
-		Model:            request.Model,
-		Messages:         messages,
-		MaxTokens:        request.MaxTokens,
-		StopSequences:    request.Stop,
-		Stream:           request.Stream,
-		Temperature:      request.Temperature,
-		ToolChoice:       request.ToolChoice,
-		TopK:             request.TopK,
-		TopP:             request.TopP,
-		AnthropicVersion: "vertex-2023-10-16",
+		Model:         request.Model,
+		Messages:      messages,
+		MaxTokens:     request.MaxTokens,
+		StopSequences: request.Stop,
+		Stream:        request.Stream,
+		Temperature:   request.Temperature,
+		ToolChoice:    request.ToolChoice,
+		TopK:          request.TopK,
+		TopP:          request.TopP,
+		Tools:         request.Tools,
 	}
 
 	if chatCompletionReq.Messages[0].Role == consts.ROLE_SYSTEM {
@@ -251,14 +226,6 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 		chatCompletionReq.Metadata = &model.Metadata{
 			UserId: request.User,
 		}
-	}
-
-	for _, tool := range request.Tools {
-		chatCompletionReq.Tools = append(chatCompletionReq.Tools, model.AnthropicTool{
-			Name:        tool.Function.Name,
-			Description: tool.Function.Description,
-			InputSchema: tool.Function.Parameters,
-		})
 	}
 
 	if chatCompletionReq.MaxTokens == 0 {
@@ -277,31 +244,12 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 
 						if imageUrl, ok := content["image_url"].(map[string]interface{}); ok {
 
-							url := gconv.String(imageUrl["url"])
+							mimeType, data := common.GetMime(gconv.String(imageUrl["url"]))
 
-							if gstr.HasPrefix(url, "data:image/") {
-								base64 := gstr.Split(url, "base64,")
-								if len(base64) > 1 {
-									// data:image/jpeg;base64,
-									mimeType := fmt.Sprintf("image/%s", gstr.Split(base64[0][11:], ";")[0])
-									content["source"] = model.Source{
-										Type:      "base64",
-										MediaType: mimeType,
-										Data:      base64[1],
-									}
-								} else {
-									content["source"] = model.Source{
-										Type:      "base64",
-										MediaType: "image/jpeg",
-										Data:      base64[0],
-									}
-								}
-							} else {
-								content["source"] = model.Source{
-									Type:      "base64",
-									MediaType: "image/jpeg",
-									Data:      url,
-								}
+							content["source"] = model.Source{
+								Type:      "base64",
+								MediaType: mimeType,
+								Data:      data,
 							}
 
 							content["type"] = "image"
@@ -315,6 +263,7 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 
 	if c.isGcp {
 		chatCompletionReq.Model = ""
+		chatCompletionReq.AnthropicVersion = "vertex-2023-10-16"
 	}
 
 	if c.isAws {
@@ -327,18 +276,18 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 			Accept:      aws.String("application/json"),
 			ContentType: aws.String("application/json"),
 		}
+
 		chatCompletionReq.Model = ""
-		invokeModelStreamInput.Body, err = gjson.Marshal(chatCompletionReq)
-		if err != nil {
+
+		if invokeModelStreamInput.Body, err = gjson.Marshal(chatCompletionReq); err != nil {
 			logger.Error(ctx, err)
-			return
+			return responseChan, err
 		}
 
-		var invokeModelStreamOutput *bedrockruntime.InvokeModelWithResponseStreamOutput
-		invokeModelStreamOutput, err = c.awsClient.InvokeModelWithResponseStream(ctx, invokeModelStreamInput)
+		invokeModelStreamOutput, err := c.awsClient.InvokeModelWithResponseStream(ctx, invokeModelStreamInput)
 		if err != nil {
 			logger.Error(ctx, err)
-			return
+			return responseChan, err
 		}
 
 		stream := invokeModelStreamOutput.GetStream()
@@ -451,15 +400,19 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 
 				if chatCompletionRes.Usage != nil {
 					response.Usage = &model.Usage{
-						PromptTokens:     chatCompletionRes.Usage.InputTokens,
-						CompletionTokens: chatCompletionRes.Usage.OutputTokens,
-						TotalTokens:      chatCompletionRes.Usage.InputTokens + chatCompletionRes.Usage.OutputTokens,
+						PromptTokens:             chatCompletionRes.Usage.InputTokens,
+						CompletionTokens:         chatCompletionRes.Usage.OutputTokens,
+						TotalTokens:              chatCompletionRes.Usage.InputTokens + chatCompletionRes.Usage.OutputTokens,
+						CacheCreationInputTokens: chatCompletionRes.Usage.CacheCreationInputTokens,
+						CacheReadInputTokens:     chatCompletionRes.Usage.CacheReadInputTokens,
 					}
 				}
 
 				if chatCompletionRes.Message.Usage != nil {
 					response.Usage = &model.Usage{
-						PromptTokens: chatCompletionRes.Message.Usage.InputTokens,
+						PromptTokens:             chatCompletionRes.Message.Usage.InputTokens,
+						CacheCreationInputTokens: chatCompletionRes.Message.Usage.CacheCreationInputTokens,
+						CacheReadInputTokens:     chatCompletionRes.Message.Usage.CacheReadInputTokens,
 					}
 				}
 
@@ -470,7 +423,7 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 				} else {
 					if chatCompletionRes.Delta.Type == consts.DELTA_TYPE_INPUT_JSON {
 						response.Choices = append(response.Choices, model.ChatCompletionChoice{
-							Delta: &openai.ChatCompletionStreamChoiceDelta{
+							Delta: &model.ChatCompletionStreamChoiceDelta{
 								Role: consts.ROLE_ASSISTANT,
 								ToolCalls: []openai.ToolCall{{
 									Function: openai.FunctionCall{
@@ -481,7 +434,7 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 						})
 					} else {
 						response.Choices = append(response.Choices, model.ChatCompletionChoice{
-							Delta: &openai.ChatCompletionStreamChoiceDelta{
+							Delta: &model.ChatCompletionStreamChoiceDelta{
 								Role:    consts.ROLE_ASSISTANT,
 								Content: chatCompletionRes.Delta.Text,
 							},
@@ -494,7 +447,7 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 
 					if len(response.Choices) == 0 {
 						response.Choices = append(response.Choices, model.ChatCompletionChoice{
-							Delta:        new(openai.ChatCompletionStreamChoiceDelta),
+							Delta:        new(model.ChatCompletionStreamChoiceDelta),
 							FinishReason: openai.FinishReasonStop,
 						})
 					}
@@ -620,16 +573,20 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 						promptTokens = chatCompletionRes.Usage.InputTokens
 					}
 					response.Usage = &model.Usage{
-						PromptTokens:     promptTokens,
-						CompletionTokens: chatCompletionRes.Usage.OutputTokens,
-						TotalTokens:      promptTokens + chatCompletionRes.Usage.OutputTokens,
+						PromptTokens:             promptTokens,
+						CompletionTokens:         chatCompletionRes.Usage.OutputTokens,
+						TotalTokens:              promptTokens + chatCompletionRes.Usage.OutputTokens,
+						CacheCreationInputTokens: chatCompletionRes.Usage.CacheCreationInputTokens,
+						CacheReadInputTokens:     chatCompletionRes.Usage.CacheReadInputTokens,
 					}
 				}
 
 				if chatCompletionRes.Message.Usage != nil {
 					promptTokens = chatCompletionRes.Message.Usage.InputTokens
 					response.Usage = &model.Usage{
-						PromptTokens: promptTokens,
+						PromptTokens:             promptTokens,
+						CacheCreationInputTokens: chatCompletionRes.Message.Usage.CacheCreationInputTokens,
+						CacheReadInputTokens:     chatCompletionRes.Message.Usage.CacheReadInputTokens,
 					}
 				}
 
@@ -640,7 +597,7 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 				} else {
 					if chatCompletionRes.Delta.Type == consts.DELTA_TYPE_INPUT_JSON {
 						response.Choices = append(response.Choices, model.ChatCompletionChoice{
-							Delta: &openai.ChatCompletionStreamChoiceDelta{
+							Delta: &model.ChatCompletionStreamChoiceDelta{
 								Role: consts.ROLE_ASSISTANT,
 								ToolCalls: []openai.ToolCall{{
 									Function: openai.FunctionCall{
@@ -651,7 +608,7 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 						})
 					} else {
 						response.Choices = append(response.Choices, model.ChatCompletionChoice{
-							Delta: &openai.ChatCompletionStreamChoiceDelta{
+							Delta: &model.ChatCompletionStreamChoiceDelta{
 								Role:    consts.ROLE_ASSISTANT,
 								Content: chatCompletionRes.Delta.Text,
 							},
@@ -664,7 +621,7 @@ func (c *Client) ChatCompletionStream(ctx context.Context, request model.ChatCom
 
 					if len(response.Choices) == 0 {
 						response.Choices = append(response.Choices, model.ChatCompletionChoice{
-							Delta:        new(openai.ChatCompletionStreamChoiceDelta),
+							Delta:        new(model.ChatCompletionStreamChoiceDelta),
 							FinishReason: openai.FinishReasonStop,
 						})
 					}
