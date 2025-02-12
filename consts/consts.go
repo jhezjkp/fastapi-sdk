@@ -15,10 +15,10 @@ const (
 	CORP_ANTHROPIC      = "Anthropic"
 	CORP_GCP_CLAUDE     = "GCPClaude"
 	CORP_AWS_CLAUDE     = "AWSClaude"
-	CORP_CLOUDFLARE  = "Cloudflare"
-	CORP_HYPERBOLIC  = "Hyperbolic"
-	CORP_SILICONFLOW = "Siliconflow"
-	CORP_GROQ        = "groq"
+	CORP_CLOUDFLARE     = "Cloudflare"
+	CORP_HYPERBOLIC     = "Hyperbolic"
+	CORP_SILICONFLOW    = "Siliconflow"
+	CORP_GROQ           = "Groq"
 )
 
 const (
